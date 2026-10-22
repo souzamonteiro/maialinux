@@ -83,3 +83,4 @@ else
     echo "Usage: $0 [--gui [rootfs_path] | --vm]"
     exit 1
 fi
+

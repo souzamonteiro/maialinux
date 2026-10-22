@@ -77,3 +77,4 @@ It turns the RG353V into a complete **Dual-Mode Handheld Gaming Console + Linux 
 
 - **User**: `ark`
 - **Password**: `arkos`
+
