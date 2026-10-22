@@ -34,7 +34,7 @@ cat > "$CUR_TTY" 2>/dev/null << 'EOF' || true
 Initializing swap, controls, and X11 server...
 EOF
 
-# 0. Ensure runtime headers, Wayland-EGL shim, Openbox config, and starter binaries are synced
+# 0. Ensure runtime headers, Wayland-EGL shim, Openbox/PCManFM configs, and starter binaries are synced
 if [[ -d /etc/maialinux-runtime/include ]] && [[ ! -f /usr/include/stdio.h ]]; then
     sudo cp -af /etc/maialinux-runtime/include/. /usr/include/ 2>/dev/null || true
 fi
@@ -45,6 +45,10 @@ fi
 if [[ -f /etc/maialinux-runtime/openbox-lxqt-rc.xml ]]; then
     sudo cp -f /etc/maialinux-runtime/openbox-lxqt-rc.xml /home/ark/.config/openbox/lxqt-rc.xml 2>/dev/null || true
     sudo chown 1002:1002 /home/ark/.config/openbox/lxqt-rc.xml 2>/dev/null || true
+fi
+if [[ -f /etc/maialinux-runtime/pcmanfm-qt-settings.conf ]]; then
+    sudo cp -f /etc/maialinux-runtime/pcmanfm-qt-settings.conf /home/ark/.config/pcmanfm-qt/lxqt/settings.conf 2>/dev/null || true
+    sudo chown 1002:1002 /home/ark/.config/pcmanfm-qt/lxqt/settings.conf 2>/dev/null || true
 fi
 if [[ -f /etc/maialinux-runtime/bin/hello-rg353v ]] && [[ ! -f /home/ark/projects/hello-c/hello-rg353v ]]; then
     sudo cp -f /etc/maialinux-runtime/bin/hello-rg353v /home/ark/projects/hello-c/hello-rg353v 2>/dev/null || true
