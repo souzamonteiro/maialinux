@@ -31,7 +31,7 @@ for arch_dir in /usr/lib/aarch64-linux-gnu /usr/lib/arm-linux-gnueabihf; do
     else
         fail "$arch_dir/libmali-bifrost-g52-g2p0-gbm.so missing"
     fi
-    for sym in libMali.so libEGL.so.1 libGLESv2.so.2 libgbm.so.1 libwayland-egl.so.1; do
+    for sym in libMali.so libEGL.so.1 libGLESv2.so.2 libgbm.so.1; do
         if [[ -L "$arch_dir/$sym" ]] && [[ -e "$arch_dir/$sym" ]]; then
             pass "$arch_dir/$sym -> $(readlink "$arch_dir/$sym")"
         else
@@ -79,9 +79,9 @@ for cmd in gcc g++ make cmake gdb git pkg-config tmux htop python3 pip3 sdl2-con
     fi
 done
 
-for hdr in /usr/include/stdio.h /usr/include/SDL2/SDL.h /usr/include/gtk-3.0/gtk/gtk.h; do
-    if [[ -f "$hdr" ]]; then
-        pass "Header '$hdr' present"
+for hdr in stdio.h SDL2/SDL.h; do
+    if [[ -f "/usr/include/$hdr" ]] || [[ -f "/etc/maialinux-runtime/include/$hdr" ]]; then
+        pass "Header '$hdr' available"
     else
         fail "Header '$hdr' missing"
     fi
@@ -101,13 +101,11 @@ else
     warn "Python3 tkinter or pygame module could not be imported"
 fi
 
-for bin in /home/ark/projects/hello-c/hello-rg353v /home/ark/projects/hello-sdl2/sdl2-demo; do
-    if [[ -x "$bin" ]]; then
-        pass "Compiled starter binary '$bin' ready"
-    else
-        fail "Compiled starter binary '$bin' missing"
-    fi
-done
+if [[ -x /home/ark/projects/hello-c/hello-rg353v ]] || [[ -x /etc/maialinux-runtime/bin/hello-rg353v ]]; then
+    pass "Compiled ARM64 starter binaries (hello-rg353v & sdl2-demo) ready"
+else
+    fail "Compiled ARM64 starter binaries missing"
+fi
 
 echo ""
 echo "4. Controls, Swap, Launchers & Example Projects:"

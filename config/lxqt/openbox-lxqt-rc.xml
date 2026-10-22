@@ -175,21 +175,43 @@
     <application name="geany*">
       <maximized>true</maximized>
     </application>
-    <application name="matchbox-keyboard">
+    <application name="featherpad*">
+      <maximized>true</maximized>
+    </application>
+    <application name="qterminal*">
+      <maximized>true</maximized>
+    </application>
+    <application title="Keyboard">
       <decor>no</decor>
       <layer>above</layer>
+      <focus>no</focus>
       <skip_pager>yes</skip_pager>
       <skip_taskbar>yes</skip_taskbar>
       <position force="yes">
         <x>0</x>
-        <y>276</y>
+        <y>296</y>
       </position>
       <size>
         <width>640</width>
-        <height>180</height>
+        <height>160</height>
       </size>
     </application>
-    <application name="onboard">
+    <application name="*matchbox*">
+      <decor>no</decor>
+      <layer>above</layer>
+      <focus>no</focus>
+      <skip_pager>yes</skip_pager>
+      <skip_taskbar>yes</skip_taskbar>
+      <position force="yes">
+        <x>0</x>
+        <y>296</y>
+      </position>
+      <size>
+        <width>640</width>
+        <height>160</height>
+      </size>
+    </application>
+    <application name="onboard*">
       <decor>no</decor>
       <layer>above</layer>
       <skip_pager>yes</skip_pager>

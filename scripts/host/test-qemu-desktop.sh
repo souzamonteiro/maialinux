@@ -1,104 +1,107 @@
 #!/usr/bin/env bash
 # test-qemu-desktop.sh
-# Tests the ARM64 MaiaLinux LXQt desktop environment at the exact RG353V resolution (640x480)
-# on the host PC using QEMU user-mode (qemu-aarch64-static) + Xephyr (interactive window)
-# or Xvfb (automated screenshot verification).
+# Runs and tests the ARM64 MaiaLinux LXQt desktop environment at the exact RG353V
+# resolution (640x480) on the host PC using Bubblewrap (bwrap) + QEMU user-mode
+# (qemu-aarch64-static) + Xephyr.
+# Works rootlessly (no sudo required!) directly against a mounted SD card (/media/roberto/root).
 #
 # Usage:
-#   sudo ./scripts/host/test-qemu-desktop.sh [/media/roberto/root] [--headless]
+#   ./scripts/host/test-qemu-desktop.sh [/media/roberto/root] [--screenshot-only|--interactive]
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOTFS="${1:-/media/roberto/root}"
 MODE="${2:---interactive}"
-SCREENSHOT_OUT="/tmp/maialinux-qemu-640x480.png"
+SCREENSHOT_OUT="${SCREENSHOT_OUT:-/tmp/maialinux-qemu-640x480.png}"
 TEST_DISPLAY=":42"
 
-if [[ $EUID -ne 0 ]]; then
-    echo "Error: Run with sudo: sudo $0 [rootfs_path] [--headless|--interactive]" >&2
+if [[ ! -d "$ROOTFS/usr/lib/aarch64-linux-gnu" ]]; then
+    echo "Error: ARM64 rootfs not found at '$ROOTFS'" >&2
     exit 1
 fi
 
 echo "============================================================"
-echo "  MaiaLinux 640x480 QEMU + X11 Desktop Simulator"
+echo "  MaiaLinux 640x480 ARM64 QEMU + Bubblewrap + Xephyr Test"
 echo "  Rootfs : $ROOTFS"
 echo "  Mode   : $MODE"
 echo "============================================================"
 
-# Create a test script inside target /tmp to run LXQt + Virtual Keyboard + Geany/Terminal
-cat > "$ROOTFS/tmp/run-qemu-lxqt-test.sh" << 'EOF'
-#!/usr/bin/env bash
-set -uo pipefail
+# Prepare temporary /home/ark overlay with our latest 640x480 configs & compiled examples
+SIM_HOME="/tmp/maialinux-sim-home"
+rm -rf "$SIM_HOME"
+mkdir -p "$SIM_HOME"
+cp -rf "$ROOTFS/home/ark/." "$SIM_HOME/" 2>/dev/null || true
 
-export DISPLAY=":42"
-export XDG_SESSION_TYPE="x11"
-export XDG_CURRENT_DESKTOP="LXQt"
-export QT_QPA_PLATFORM="xcb"
-export GDK_BACKEND="x11"
-export HOME="/home/ark"
-export USER="ark"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cp -f "$REPO_ROOT/config/lxqt/lxqt.conf" "$SIM_HOME/.config/lxqt/lxqt.conf"
+cp -f "$REPO_ROOT/config/lxqt/panel.conf" "$SIM_HOME/.config/lxqt/panel.conf"
+cp -f "$REPO_ROOT/config/lxqt/session.conf" "$SIM_HOME/.config/lxqt/session.conf"
+cp -f "$REPO_ROOT/config/lxqt/openbox-lxqt-rc.xml" "$SIM_HOME/.config/openbox/lxqt-rc.xml"
+cp -f "$REPO_ROOT/config/lxqt/pcmanfm-qt-settings.conf" "$SIM_HOME/.config/pcmanfm-qt/lxqt/settings.conf"
+cp -f "$REPO_ROOT/config/geany/geany.conf" "$SIM_HOME/.config/geany/geany.conf"
 
-# Start Xvfb inside the ARM64 chroot at 640x480x24 if no X server is on :42 yet
-if ! xdpyinfo -display "$DISPLAY" >/dev/null 2>&1; then
-    Xvfb "$DISPLAY" -screen 0 640x480x24 -ac +extension GLX +render -noreset >/tmp/xvfb.log 2>&1 &
-    XVFB_PID=$!
-    sleep 2
-fi
+# Start Xephyr 640x480 window on host X11 display
+Xephyr "$TEST_DISPLAY" -screen 640x480 -title "MaiaLinux RG353V (640x480 ARM64 QEMU)" -ac -br >/dev/null 2>&1 &
+XEPHYR_PID=$!
 
-# Run Openbox + LXQt Panel + PCManFM-Qt Desktop + Matchbox Keyboard + QTerminal as user ark
-su - ark -c "
-    export DISPLAY=:42
-    export XDG_SESSION_TYPE=x11
-    export XDG_CURRENT_DESKTOP=LXQt
-    export QT_QPA_PLATFORM=xcb
-    export GDK_BACKEND=x11
-    dbus-launch --sh-syntax > /tmp/dbus-env.sh
-    source /tmp/dbus-env.sh
-    openbox --config-file /home/ark/.config/openbox/lxqt-rc.xml >/tmp/openbox.log 2>&1 &
-    sleep 1
-    pcmanfm-qt --desktop --profile=lxqt >/tmp/pcmanfm.log 2>&1 &
-    lxqt-panel >/tmp/lxqt-panel.log 2>&1 &
-    sleep 2
-    qterminal -e 'bash -c \"uname -a; gcc --version | head -n1; python3 --version; ls -la ~/projects; exec bash\"' >/tmp/qterminal.log 2>&1 &
-    sleep 1
-    matchbox-keyboard >/tmp/mbk.log 2>&1 &
-    sleep 2
-"
+cleanup() {
+    kill "$XEPHYR_PID" 2>/dev/null || true
+}
+trap cleanup EXIT
 
-if [[ "${1:-}" == "--headless" ]]; then
-    scrot -D "$DISPLAY" /tmp/maialinux-qemu-640x480.png || import -display "$DISPLAY" -window root /tmp/maialinux-qemu-640x480.png
-    echo "Captured 640x480 screenshot to /tmp/maialinux-qemu-640x480.png"
-    pkill -f "lxqt-panel|pcmanfm-qt|qterminal|matchbox-keyboard|openbox|Xvfb" 2>/dev/null || true
-else
-    echo "Interactive session running on $DISPLAY. Close the Xephyr window or press Ctrl+C to stop."
-    wait
-fi
-EOF
-chmod 755 "$ROOTFS/tmp/run-qemu-lxqt-test.sh"
+sleep 1
 
-if [[ "$MODE" == "--headless" ]]; then
-    # Ensure xvfb is available inside chroot for headless testing
-    "$SCRIPT_DIR/chroot-run.sh" "$ROOTFS" apt-get install -y xvfb
-    "$SCRIPT_DIR/chroot-run.sh" "$ROOTFS" /tmp/run-qemu-lxqt-test.sh --headless
-    if [[ -f "$ROOTFS/tmp/maialinux-qemu-640x480.png" ]]; then
-        cp -f "$ROOTFS/tmp/maialinux-qemu-640x480.png" "$SCREENSHOT_OUT"
-        chmod 644 "$SCREENSHOT_OUT"
-        echo "==> Screenshot saved on host at: $SCREENSHOT_OUT"
-    fi
-else
-    # If Xephyr is installed on host, open a 640x480 window on the host desktop and share /tmp/.X11-unix
-    if command -v Xephyr >/dev/null 2>&1 && [[ -n "${DISPLAY:-}" ]]; then
-        Xephyr "$TEST_DISPLAY" -screen 640x480 -title "MaiaLinux RG353V (640x480)" -ac -br 2>/dev/null &
-        XEPHYR_PID=$!
-        sleep 1
-        mkdir -p "$ROOTFS/tmp/.X11-unix"
-        mount --bind /tmp/.X11-unix "$ROOTFS/tmp/.X11-unix"
-        "$SCRIPT_DIR/chroot-run.sh" "$ROOTFS" /tmp/run-qemu-lxqt-test.sh --interactive || true
-        umount -lf "$ROOTFS/tmp/.X11-unix" 2>/dev/null || true
-        kill "$XEPHYR_PID" 2>/dev/null || true
-    else
-        echo "Xephyr not found on host; running headless verification and generating screenshot..."
-        "$0" "$ROOTFS" --headless
-    fi
+# Run the entire ARM64 LXQt session inside Bubblewrap chroot mapped to user ark (UID 1002)
+bwrap \
+    --unshare-user --uid 1002 --gid 1002 \
+    --ro-bind "$ROOTFS" / \
+    --dev /dev \
+    --proc /proc \
+    --bind /tmp /tmp \
+    --bind "$SIM_HOME" /home/ark \
+    --setenv DISPLAY "$TEST_DISPLAY" \
+    --setenv HOME "/home/ark" \
+    --setenv USER "ark" \
+    --setenv LOGNAME "ark" \
+    --setenv XDG_RUNTIME_DIR "/tmp/runtime-ark" \
+    --setenv XDG_SESSION_TYPE "x11" \
+    --setenv XDG_CURRENT_DESKTOP "LXQt" \
+    --setenv QT_QPA_PLATFORM "xcb" \
+    --setenv QT_QPA_PLATFORMTHEME "lxqt" \
+    --setenv GDK_BACKEND "x11" \
+    --setenv LD_LIBRARY_PATH "/etc/maialinux-runtime/lib:/usr/lib/aarch64-linux-gnu:/lib/aarch64-linux-gnu" \
+    --setenv C_INCLUDE_PATH "/etc/maialinux-runtime/include:/etc/maialinux-runtime/include/aarch64-linux-gnu:/usr/include/aarch64-linux-gnu:/usr/include" \
+    /usr/bin/qemu-aarch64-static /bin/bash -c '
+        mkdir -p /tmp/runtime-ark && chmod 700 /tmp/runtime-ark
+
+        # Start D-Bus session
+        eval $(dbus-launch --sh-syntax)
+
+        # Start Openbox with 640x480 rules
+        openbox --config-file /home/ark/.config/openbox/lxqt-rc.xml >/tmp/bwrap-openbox.log 2>&1 &
+        sleep 0.8
+
+        # Start PCManFM-Qt Desktop & LXQt 24px Bottom Panel first
+        pcmanfm-qt --desktop --profile=lxqt >/tmp/bwrap-pcmanfm.log 2>&1 &
+        lxqt-panel >/tmp/bwrap-panel.log 2>&1 &
+        sleep 2.2
+
+        # Launch Geany IDE in foreground with SDL2 C project
+        geany -i /home/ark/projects/hello-sdl2/main.c >/tmp/bwrap-geany.log 2>&1 &
+        sleep 3
+
+        # Launch docked Matchbox Virtual Keyboard at bottom (y=296, 640x160)
+        matchbox-keyboard >/tmp/bwrap-mbk.log 2>&1 &
+        sleep 1.5
+
+        scrot -D "'"$TEST_DISPLAY"'" /tmp/bwrap-screen.png 2>/dev/null || import -display "'"$TEST_DISPLAY"'" -window root /tmp/bwrap-screen.png 2>/dev/null || true
+
+        if [[ "'"$MODE"'" == "--interactive" ]]; then
+            wait
+        fi
+    '
+
+if [[ -f /tmp/bwrap-screen.png ]]; then
+    cp -f /tmp/bwrap-screen.png "$SCREENSHOT_OUT"
+    echo "==> Captured 640x480 simulation screenshot: $SCREENSHOT_OUT"
 fi

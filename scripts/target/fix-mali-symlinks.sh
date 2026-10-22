@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # fix-mali-symlinks.sh
-# Preserves and restores ArkOS Mali Bifrost G52 GPU drivers (aarch64 & armhf)
-# and fixes non-symlink shared libraries so both EmulationStation/RetroArch (GBM/GLES)
-# and Xorg/LXQt (modesetting/X11) coexist without library conflicts.
+# Preserves and restores ArkOS Mali Bifrost G52 GPU drivers (aarch64 & armhf),
+# keeps real libwayland-egl.so.1 (so GTK3 apps have wl_egl_window_* symbols),
+# converts same-directory absolute symlinks to relative symlinks, and fixes
+# duplicate non-symlink shared libraries so ldconfig has zero warnings.
 
 set -euo pipefail
 
@@ -46,10 +47,12 @@ setup_arch_mali_links() {
         fi
     fi
 
-    # Point libMali.so to the Bifrost G52 GBM blob
-    ln -sf "$libdir/$blob" "$libdir/libMali.so"
+    # Point libMali.so relatively to the Bifrost G52 GBM blob
+    ln -sf "$blob" "$libdir/libMali.so"
 
-    # Point all GBM / EGL / GLES / Wayland-EGL / OpenCL links to libMali.so
+    # Point GBM / EGL / GLES / OpenCL links relatively to libMali.so.
+    # NOTE: Do NOT point libwayland-egl.so* to libMali.so because the G52 GBM blob
+    # does not export wl_egl_window_* symbols needed by GTK3 (libgdk-3.so.0).
     local mali_links=(
         "libmali.so"
         "libmali.so.1"
@@ -69,9 +72,6 @@ setup_arch_mali_links() {
         "libgbm.so"
         "libgbm.so.1"
         "libgbm.so.1.0.0"
-        "libwayland-egl.so"
-        "libwayland-egl.so.1"
-        "libwayland-egl.so.1.0.0"
         "libMaliOpenCL.so"
         "libMaliOpenCL.so.1"
         "libOpenCL.so"
@@ -79,15 +79,26 @@ setup_arch_mali_links() {
 
     for link_name in "${mali_links[@]}"; do
         rm -f "$libdir/$link_name"
-        ln -sf "$libdir/libMali.so" "$libdir/$link_name"
+        ln -sf "libMali.so" "$libdir/$link_name"
     done
 
-    log_info "Configured Mali GBM/EGL/GLES symlinks in $libdir"
+    # Convert any absolute symlinks pointing into the same directory into relative symlinks
+    # (e.g., libSDL2-2.0.so.0 -> /usr/lib/aarch64-linux-gnu/libSDL2.so)
+    for l in "$libdir"/*; do
+        if [[ -L "$l" ]]; then
+            local target
+            target=$(readlink "$l")
+            if [[ "$target" == "$libdir/"* ]]; then
+                local rel_target="${target#$libdir/}"
+                ln -sf "$rel_target" "$l"
+            fi
+        fi
+    done
+
+    log_info "Configured relative Mali GBM/EGL/GLES symlinks in $libdir"
 }
 
 fix_duplicate_soname_files() {
-    # Fixes ArkOS rootfs files where libFoo.so.X is a duplicate regular file
-    # instead of a symlink to libFoo.so.X.Y.Z, which triggers ldconfig warnings.
     local known_SONAMES=(
         "$AARCH64_DIR/libSDL2_gfx-1.0.so.0"
         "$AARCH64_DIR/libnm.so.0"
@@ -137,6 +148,8 @@ case "${1:---restore}" in
         backup_mali
         setup_arch_mali_links "$AARCH64_DIR" "aarch64"
         setup_arch_mali_links "$ARMHF_DIR" "armhf"
+        # Ensure real libwayland-egl1 is intact for GTK3 apps
+        apt-get install -y --reinstall libwayland-egl1 libwayland-dev >/dev/null 2>&1 || true
         fix_duplicate_soname_files
         ldconfig
         log_info "ldconfig cache rebuilt cleanly."

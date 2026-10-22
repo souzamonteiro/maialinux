@@ -34,6 +34,24 @@ cat > "$CUR_TTY" 2>/dev/null << 'EOF' || true
 Initializing swap, controls, and X11 server...
 EOF
 
+# 0. Ensure runtime headers, Wayland-EGL shim, Openbox config, and starter binaries are synced
+if [[ -d /etc/maialinux-runtime/include ]] && [[ ! -f /usr/include/stdio.h ]]; then
+    sudo cp -af /etc/maialinux-runtime/include/. /usr/include/ 2>/dev/null || true
+fi
+if [[ -f /etc/maialinux-runtime/lib/libwayland-egl.so.1.0.0 ]]; then
+    sudo cp -af /etc/maialinux-runtime/lib/libwayland-egl.so* /usr/lib/aarch64-linux-gnu/ 2>/dev/null || true
+    sudo ldconfig 2>/dev/null || true
+fi
+if [[ -f /etc/maialinux-runtime/openbox-lxqt-rc.xml ]]; then
+    sudo cp -f /etc/maialinux-runtime/openbox-lxqt-rc.xml /home/ark/.config/openbox/lxqt-rc.xml 2>/dev/null || true
+    sudo chown 1002:1002 /home/ark/.config/openbox/lxqt-rc.xml 2>/dev/null || true
+fi
+if [[ -f /etc/maialinux-runtime/bin/hello-rg353v ]] && [[ ! -f /home/ark/projects/hello-c/hello-rg353v ]]; then
+    sudo cp -f /etc/maialinux-runtime/bin/hello-rg353v /home/ark/projects/hello-c/hello-rg353v 2>/dev/null || true
+    sudo cp -f /etc/maialinux-runtime/bin/sdl2-demo /home/ark/projects/hello-sdl2/sdl2-demo 2>/dev/null || true
+    sudo chown -R 1002:1002 /home/ark/projects 2>/dev/null || true
+fi
+
 # 1. If invoked from SSH or systemd while EmulationStation is running standalone,
 #    pause EmulationStation so it releases DRM master on /dev/dri/card0.
 RESTART_ES_AFTER=false
@@ -49,13 +67,17 @@ fi
 # 2. Enable 2GB swapfile
 sudo /usr/local/bin/maialinux-swap.sh enable || true
 
-# 3. Export X11 / Qt5 / GTK3 environment variables
+# 3. Export X11 / Qt5 / GTK3 / Compiler environment variables
 export XDG_SESSION_TYPE="x11"
 export XDG_CURRENT_DESKTOP="LXQt"
 export QT_QPA_PLATFORM="xcb"
+export QT_QPA_PLATFORMTHEME="lxqt"
 export QT_AUTO_SCREEN_SCALE_FACTOR="0"
 export QT_SCALE_FACTOR="1"
 export GDK_BACKEND="x11"
+export LD_LIBRARY_PATH="/etc/maialinux-runtime/lib:/usr/lib/aarch64-linux-gnu:/lib/aarch64-linux-gnu:${LD_LIBRARY_PATH:-}"
+export C_INCLUDE_PATH="/etc/maialinux-runtime/include:/etc/maialinux-runtime/include/aarch64-linux-gnu:/usr/include/aarch64-linux-gnu:/usr/include"
+export CPLUS_INCLUDE_PATH="/etc/maialinux-runtime/include/c++/9:/etc/maialinux-runtime/include/aarch64-linux-gnu/c++/9:/etc/maialinux-runtime/include:/etc/maialinux-runtime/include/aarch64-linux-gnu:/usr/include/aarch64-linux-gnu:/usr/include"
 export SDL_GAMECONTROLLERCONFIG_FILE="/opt/inttools/gamecontrollerdb.txt"
 
 # 4. Launch gptokeyb controller-to-mouse/keyboard mapper in background
@@ -69,7 +91,6 @@ if [[ -x "$GPTOKEYB_BIN" ]] && [[ -f "$GPTOKEYB_CONF" ]]; then
 fi
 
 # 5. Start Xorg + LXQt session
-# Clean up stale lockfiles if Xorg crashed previously
 if ! pgrep -x "Xorg" >/dev/null 2>&1; then
     sudo rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 2>/dev/null || true
 fi
