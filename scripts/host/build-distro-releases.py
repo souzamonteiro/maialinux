@@ -81,6 +81,7 @@ def build_part3_boot(part3_img: str) -> None:
         (os.path.join(REPO_ROOT, "config/boot/logo_kernel.bmp"), "::/logo_kernel.bmp"),
         (os.path.join(REPO_ROOT, "config/boot/resource.img"), "::/resource.img"),
         (os.path.join(SDCARD_BOOT, "firstboot.sh"), "::/firstboot.sh"),
+        (os.path.join(SDCARD_BOOT, "extlinux/extlinux.conf"), "::/extlinux/extlinux.conf"),
         (os.path.join(REPO_ROOT, "config/boot/logo.bmp"), "::/splash/logo_640x480.bmp"),
         (os.path.join(REPO_ROOT, "config/boot/logo_1920x1080.bmp"), "::/splash/logo_1920x1080.bmp"),
     ]
@@ -171,6 +172,7 @@ def build_part4_rootfs(part4_img: str, extra_sectors: int) -> int:
                     files_to_write.append((full_p, rel_p, st.st_uid, st.st_gid, st.st_mode))
 
     extra_dirs = [
+        ("/etc/plymouth", 0, 0, 0o040755),
         ("/usr/share/plymouth/themes/maialinux", 0, 0, 0o040755),
         ("/usr/share/backgrounds", 0, 0, 0o040755),
         ("/usr/share/backgrounds/maialinux", 0, 0, 0o040755),
@@ -186,8 +188,23 @@ def build_part4_rootfs(part4_img: str, extra_sectors: int) -> int:
     files_to_write.append(
         (os.path.join(REPO_ROOT, "config/plymouth/text.plymouth"), "/usr/share/plymouth/themes/text.plymouth", 0, 0, 0o100644)
     )
+    files_to_write.append(
+        (os.path.join(REPO_ROOT, "config/plymouth/plymouthd.conf"), "/etc/plymouth/plymouthd.conf", 0, 0, 0o100644)
+    )
+    files_to_write.append(
+        (os.path.join(REPO_ROOT, "config/plymouth/plymouthd.conf"), "/usr/share/plymouth/plymouthd.defaults", 0, 0, 0o100644)
+    )
+    files_to_write.append(
+        (os.path.join(REPO_ROOT, "config/systemd/maialinux-boot-splash.service"), "/etc/systemd/system/maialinux-boot-splash.service", 0, 0, 0o100644)
+    )
     symlinks_to_create.append(
         ("/usr/share/plymouth/themes/default.plymouth", "/usr/share/plymouth/themes/maialinux/maialinux.plymouth", 0, 0)
+    )
+    symlinks_to_create.append(
+        ("/etc/systemd/system/sysinit.target.wants/maialinux-boot-splash.service", "/etc/systemd/system/maialinux-boot-splash.service", 0, 0)
+    )
+    symlinks_to_create.append(
+        ("/etc/systemd/system/multi-user.target.wants/maialinux-boot-splash.service", "/etc/systemd/system/maialinux-boot-splash.service", 0, 0)
     )
 
     for fn in os.listdir(os.path.join(REPO_ROOT, "config/wallpapers")):

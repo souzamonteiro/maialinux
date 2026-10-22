@@ -1,0 +1,15 @@
+[Unit]
+Description=MaiaLinux Framebuffer & Boot Splash Setup
+DefaultDependencies=no
+After=systemd-udevd.service
+Before=plymouth-start.service emulationstation.service
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/etc/maialinux-runtime/maialinux-boot-setup.sh --boot-splash
+RemainAfterExit=yes
+
+[Install]
+WantedBy=sysinit.target multi-user.target
+
