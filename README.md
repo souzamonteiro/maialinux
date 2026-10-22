@@ -6,6 +6,8 @@
 
 It transforms the RG353V into a complete **pocket Linux computer** featuring **LXQt**, an **On-Screen Virtual Keyboard (Touchscreen + Gamepad)**, **Geany IDE**, **QTerminal**, and **full C/C++, Python 3, SDL2, GTK3, and Qt5 development toolchains**, while preserving **100% compatibility with EmulationStation, RetroArch, and Mali Bifrost G52 GPU hardware acceleration**.
 
+> 📄 See [**RELEASE_NOTES.md**](RELEASE_NOTES.md) for full details on the `v1.0.0` release artifacts.
+
 ---
 
 ## Key Features
@@ -40,68 +42,72 @@ It transforms the RG353V into a complete **pocket Linux computer** featuring **L
 
 ---
 
-## Repository Structure
+## Quick Start for End Users (GitHub Releases)
 
-```text
-maialinux/
-├── Makefile                        # Automation: install-sdcard, healthcheck, test-qemu, build-image
-├── install-on-device.sh            # Idempotent installer executed inside the ARM64 rootfs
-├── images/                         # Official MaiaLinux artwork (4:3 640x480 and 16:9 1920x1080)
-├── config/
-│   ├── boot/                       # Rockchip resource.img, U-Boot/Kernel BMP logos & launch splash
-│   ├── plymouth/                   # Graphical Plymouth boot theme (auto 4:3 & 16:9 HDMI)
-│   ├── wallpapers/                 # Optimized 640x480, 1280x720, and 1920x1080 PNG wallpapers
-│   ├── emulationstation/           # EmulationStation NES-Box theme customizations (4:3 & 16:9 HDMI)
-│   ├── xorg/                       # Rockchip DRM modesetting (Glamor off), Touchscreen & Xwrapper
-│   ├── lxqt/                       # LXQt + Openbox + PCManFM-Qt profile tuned for 640x480
-│   ├── keyboard/                   # Virtual keyboard toggle script (F12 / Select / Y)
-│   ├── controls/                   # gptokeyb profile (desktop.gptk) for the RG353V gamepad
-│   ├── geany/                      # Geany IDE configuration for 640x480
-│   ├── desktop-entries/            # Desktop & Application menu shortcuts
-│   └── systemd/                    # maialinux-desktop.service systemd unit
-├── scripts/
-│   ├── host/                       # Host PC scripts (QEMU chroot, SD card, .img.xz builder, 640x480 simulator, resource_tool.c)
-│   └── target/                     # Target scripts installed on RG353V (/usr/local/bin & /roms/tools)
-└── examples/                       # Starter projects (C, SDL2, Python Tkinter, Pygame)
-```
+Download the pre-built release artifacts from the [**GitHub Releases**](../../releases) page (or generate them locally into `distro/` with `make build-distro`):
+
+- **`MaiaLinux-RG353V-v1.0.0-sdcard.img.xz`** — Flashable microSD Card Image for the Anbernic RG353V
+- **`MaiaLinux-RG353V-v1.0.0-qemu.qcow2`** — Compressed ARM64 QEMU Image for testing on a PC
+
+### 1. Flashing to a microSD Card (Anbernic RG353V)
+
+1. *(Optional)* Verify the SHA-256 checksum:
+   ```bash
+   sha256sum -c MaiaLinux-RG353V-v1.0.0-sdcard.img.xz.sha256
+   ```
+2. Flash **`MaiaLinux-RG353V-v1.0.0-sdcard.img.xz`** to a microSD card (**16GB or larger**, Samsung/SanDisk recommended):
+   - **GUI (Windows / macOS / Linux)**: Open [**BalenaEtcher**](https://etcher.balena.io/) or [**Raspberry Pi Imager**](https://www.raspberrypi.com/software/), select `MaiaLinux-RG353V-v1.0.0-sdcard.img.xz` directly (no need to extract first), choose your microSD card, and click **Flash**.
+   - **Linux CLI**:
+     ```bash
+     xzcat MaiaLinux-RG353V-v1.0.0-sdcard.img.xz | sudo dd of=/dev/sdX bs=4M status=progress conv=fsync
+     sync
+     ```
+     *(Replace `/dev/sdX` or `/dev/mmcblkX` with your microSD card block device).*
+3. Insert the microSD card into the **TF1/INT** (top) slot of your Anbernic RG353V and power it on. On first boot, ArkOS/MaiaLinux automatically expands the `EASYROMS` partition to fill the rest of your SD card and flashes the custom MaiaLinux U-Boot/DRM boot splash.
+
+### 2. Running the QEMU Image on a PC
+
+You can run MaiaLinux on an x86_64 Linux PC in two ways:
+
+- **Option A — 640×480 Graphical LXQt Desktop Simulator (`qemu-aarch64-static` + `bwrap` + `Xephyr`)**:
+  Install host prerequisites (`sudo apt install qemu-user-static bubblewrap xserver-xephyr libguestfs-tools`) and run:
+  ```bash
+  # Using a mounted SD card or extracted rootfs:
+  make test-qemu
+
+  # Or directly from distro/MaiaLinux-RG353V-v1.0.0-qemu.qcow2:
+  ./scripts/host/run-qemu-image.sh --gui
+  ```
+- **Option B — Full-System ARM64 Virtual Machine (`qemu-system-aarch64`)**:
+  Install `qemu-system-arm` (`sudo apt install qemu-system-arm`) and run:
+  ```bash
+  make run-qemu-vm
+  # or:
+  ./scripts/host/run-qemu-image.sh --vm
+  ```
+  *(Log in with user `ark` and password `arkos`; SSH is forwarded on `localhost:2222`).*
 
 ---
 
-## Installation & Testing
+## Building from Source / Customizing
 
-### Option 1: Install Directly onto a Mounted SD Card (Recommended — Fast via QEMU User-Mode)
-
-With the ArkOS SD card mounted at `/media/roberto/root` and `/media/roberto/BOOT`:
+### Option 1: Build Both `distro/` Release Images (`sdcard.img.xz` + `qemu.qcow2`)
 
 ```bash
-cd /home/roberto/projects/maialinux
-make install-sdcard SDCARD_ROOT=/media/roberto/root
+make build-distro
+```
+Generates `distro/MaiaLinux-RG353V-v1.0.0-sdcard.img.xz`, `distro/MaiaLinux-RG353V-v1.0.0-qemu.qcow2`, and their `.sha256` checksum files entirely in user-space.
+
+### Option 2: Install Directly onto a Mounted ArkOS SD Card
+
+```bash
+make install-sdcard SDCARD_ROOT=/media/$USER/root
 ```
 
-This uses `qemu-aarch64-static` + `chroot` to install and compile all packages at your host PC's CPU and network speed without relying on slow handheld Wi-Fi downloads.
-
-### Option 2: Simulate the ARM64 640×480 Desktop on Your PC (Rootless via Bubblewrap + QEMU + Xephyr)
-
-You can test the actual ARM64 LXQt session at the RG353V's native `640×480` resolution on your Linux PC without `sudo`:
+### Option 3: Install Live on the RG353V Console over SSH
 
 ```bash
-# Interactive mode (opens a 640x480 window running the ARM64 LXQt session via QEMU):
-make test-qemu
-
-# Headless screenshot mode (renders and saves screenshot to /tmp/maialinux-qemu-640x480.png):
-./scripts/host/test-qemu-desktop.sh /media/roberto/root --screenshot-only
-```
-
-### Option 3: Build a Reproducible `.img.xz` Release Image from a Stock ArkOS `.img`
-
-```bash
-make build-image BASE_IMG=/path/to/ArkOS_RG353V_v2.0.img
-```
-
-### Option 4: Install Directly on the RG353V Console over SSH
-
-```bash
-scp -r /home/roberto/projects/maialinux ark@<RG353V_IP>:/tmp/maialinux
+scp -r . ark@<RG353V_IP>:/tmp/maialinux
 ssh ark@<RG353V_IP> "sudo /tmp/maialinux/install-on-device.sh"
 ```
 
@@ -126,6 +132,36 @@ ssh ark@<RG353V_IP> "sudo /tmp/maialinux/install-on-device.sh"
    ```bash
    maialinux-healthcheck.sh
    ```
+
+---
+
+## Repository Structure
+
+```text
+maialinux/
+├── Makefile                        # Automation: build-distro, test-qemu, run-qemu-vm, install-sdcard
+├── README.md                       # Documentation & User Guide (English)
+├── RELEASE_NOTES.md                # Release Notes for GitHub Releases (v1.0.0)
+├── install-on-device.sh            # Idempotent installer executed inside the ARM64 rootfs
+├── distro/                         # (gitignored) Built SD Card (.img.xz) & QEMU (.qcow2) release images
+├── images/                         # Official MaiaLinux artwork (4:3 640x480 and 16:9 1920x1080)
+├── config/
+│   ├── boot/                       # Rockchip resource.img, U-Boot/Kernel BMP logos & launch splash
+│   ├── plymouth/                   # Graphical Plymouth boot theme (auto 4:3 & 16:9 HDMI)
+│   ├── wallpapers/                 # Optimized 640x480, 1280x720, and 1920x1080 PNG wallpapers
+│   ├── emulationstation/           # EmulationStation NES-Box theme customizations (4:3 & 16:9 HDMI)
+│   ├── xorg/                       # Rockchip DRM modesetting (Glamor off), Touchscreen & Xwrapper
+│   ├── lxqt/                       # LXQt + Openbox + PCManFM-Qt profile tuned for 640x480
+│   ├── keyboard/                   # Virtual keyboard toggle script (F12 / Select / Y)
+│   ├── controls/                   # gptokeyb profile (desktop.gptk) for the RG353V gamepad
+│   ├── geany/                      # Geany IDE configuration for 640x480
+│   ├── desktop-entries/            # Desktop & Application menu shortcuts
+│   └── systemd/                    # maialinux-desktop.service systemd unit
+├── scripts/
+│   ├── host/                       # Host PC scripts (build-distro-releases.py, run-qemu-image.sh, test-qemu-desktop.sh)
+│   └── target/                     # Target scripts installed on RG353V (/usr/local/bin & /roms/tools)
+└── examples/                       # Starter projects (C, SDL2, Python Tkinter, Pygame)
+```
 
 ---
 

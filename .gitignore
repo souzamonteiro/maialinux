@@ -1,10 +1,17 @@
+# Distribution & release artifacts (too large for git; upload to GitHub Releases)
+distro/
 build/
 *.img
 *.img.xz
 *.img.gz
-*.log
-*.swp
+*.tar.xz
+*.tar.gz
+*.qcow2
+*.iso
+*.sha256
+
+# Temporary & editor files
 *~
 .DS_Store
-__pycache__/
-*.py[cod]
+.vscode/
+.idea/
