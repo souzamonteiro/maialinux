@@ -2,6 +2,7 @@
 distro/
 build/
 *.img
+!config/boot/resource.img
 *.img.xz
 *.img.gz
 *.tar.xz
