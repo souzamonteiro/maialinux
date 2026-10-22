@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<theme>
+   <formatVersion>7</formatVersion>
+
+   <variables>
+      <mainColor>A78BFA</mainColor>
+   </variables>
+
+   <feature supported="carousel">
+   <view name="system">
+      <image name="background" extra="true">
+         <zIndex>3.5</zIndex>
+         <path>./_inc/images/blue/background.png</path>
+      </image>
+      <image name="background_bottom" extra="true">
+         <path>./_inc/images/blue/background_bottom.png</path>
+      </image>
+      <helpsystem name="help">
+         <textColor>cdd6f4</textColor>
+         <iconColor>a78bfa</iconColor>
+      </helpsystem>
+   </view>
+   </feature>
+
+   <view name="basic">
+      <image name="background" extra="true">
+         <path>./_inc/images/blue/background_basic.png</path>
+      </image>
+   </view>
+
+   <view name="detailed,video">
+      <image name="background" extra="true">
+         <path>./_inc/images/blue/background_video.png</path>
+      </image>
+   </view>
+
+   <view name="detailed,video,basic">
+      <helpsystem name="help">
+         <textColor>cdd6f4</textColor>
+         <iconColor>a78bfa</iconColor>
+      </helpsystem>
+      <textlist name="gamelist">
+         <selectedColor>${mainColor}</selectedColor>
+      </textlist>
+   </view>
+
+   <view name="menu">
+      <menuText name="menutext, menutitle">
+         <separatorColor>${mainColor}</separatorColor>
+      </menuText>
+   </view>
+
+</theme>

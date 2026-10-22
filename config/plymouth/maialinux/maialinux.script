@@ -1,0 +1,34 @@
+# MaiaLinux Plymouth Boot Script
+# Automatically detects 4:3 (640x480 panel) vs 16:9 (HDMI 720p/1080p)
+
+Window.SetBackgroundTopColor(0.05, 0.04, 0.12);
+Window.SetBackgroundBottomColor(0.05, 0.04, 0.12);
+
+screen_w = Window.GetWidth();
+screen_h = Window.GetHeight();
+
+# Choose 16:9 HDMI artwork when aspect ratio > 1.5, otherwise 4:3 640x480 artwork
+if (screen_w * 10 > screen_h * 15) {
+    if (screen_w > 1280) {
+        raw_bg = Image("splash-1920x1080.png");
+    } else {
+        raw_bg = Image("splash-1280x720.png");
+    }
+} else {
+    raw_bg = Image("splash-640x480.png");
+}
+
+scaled_bg = raw_bg.Scale(screen_w, screen_h);
+bg_sprite = Sprite(scaled_bg);
+bg_sprite.SetPosition(0, 0, -100);
+
+status_sprite = Sprite();
+fun message_callback(text) {
+    if (text != "") {
+        msg_img = Image.Text(text, 0.80, 0.84, 0.96, 1.0, "DejaVu Sans 10", "center");
+        status_sprite.SetImage(msg_img);
+        status_sprite.SetPosition((screen_w - msg_img.GetWidth()) / 2, screen_h - 28, 10);
+    }
+}
+Plymouth.SetMessageFunction(message_callback);
+Plymouth.SetUpdateStatusFunction(message_callback);

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Wallpaper (4:3 / HDMI)
+Comment=Toggle between 640x480 (4:3) and 1920x1080 (HDMI 16:9) MaiaLinux Wallpapers
+Exec=/usr/local/bin/maialinux-wallpaper.sh toggle
+Icon=preferences-desktop-wallpaper
+Terminal=false
+Categories=Settings;DesktopSettings;

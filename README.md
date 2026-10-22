@@ -1,6 +1,6 @@
 # MaiaLinux for Anbernic RG353V
 
-![MaiaLinux at Neon Twilight](images/MaiaLinux_at_Neon_Twilight_640x480.png)
+![alt text](<images/MaiaLinux_ Play_Explore_and_Customize.png>)
 
 **MaiaLinux** é uma distribuição/camada de ambiente desktop e desenvolvimento reprodutível baseada no **ArkOS (Ubuntu 19.10 Eoan ARM64)** para o console portátil **Anbernic RG353V (Rockchip RK3566)**.
 

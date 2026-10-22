@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=MaiaLinux Neon Twilight
+Description=MaiaLinux Boot Splash (4:3 640x480 and 16:9 HDMI Auto-Select)
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/maialinux
+ScriptFile=/usr/share/plymouth/themes/maialinux/maialinux.script

@@ -213,6 +213,8 @@ install -m 755 "$REPO_ROOT/scripts/target/maialinux-swap.sh" /usr/local/bin/maia
 install -m 755 "$REPO_ROOT/scripts/target/start-maialinux.sh" /usr/local/bin/start-maialinux.sh
 install -m 755 "$REPO_ROOT/scripts/target/maialinux-return-to-es" /usr/local/bin/maialinux-return-to-es
 install -m 755 "$REPO_ROOT/scripts/target/switch-boot-mode.sh" /usr/local/bin/switch-boot-mode.sh
+install -m 755 "$REPO_ROOT/scripts/target/maialinux-wallpaper.sh" /usr/local/bin/maialinux-wallpaper.sh
+install -m 755 "$REPO_ROOT/scripts/target/maialinux-boot-setup.sh" /usr/local/bin/maialinux-boot-setup.sh
 install -m 755 "$REPO_ROOT/scripts/target/maialinux-healthcheck.sh" /usr/local/bin/maialinux-healthcheck.sh
 
 # Install EmulationStation Tools menu entries (both /roms/tools and /opt/system/Tools)
@@ -220,7 +222,29 @@ for tools_dir in /roms/tools /opt/system/Tools; do
     mkdir -p "$tools_dir"
     install -m 755 "$REPO_ROOT/scripts/target/start-maialinux.sh" "$tools_dir/Launch-MaiaLinux-LXQt.sh"
     install -m 755 "$REPO_ROOT/scripts/target/switch-boot-mode.sh" "$tools_dir/Switch-Boot-Mode.sh"
+    install -m 755 "$REPO_ROOT/scripts/target/maialinux-wallpaper.sh" "$tools_dir/Switch-Wallpaper-4x3-HDMI.sh"
 done
+
+# Install Wallpapers (640x480 4:3 and 1920x1080 16:9 HDMI), Boot Splash, Plymouth & EmulationStation themes
+mkdir -p /etc/maialinux-runtime/wallpapers \
+         /etc/maialinux-runtime/boot \
+         /etc/maialinux-runtime/plymouth \
+         /etc/maialinux-runtime/emulationstation \
+         /usr/share/backgrounds/maialinux \
+         "$TARGET_HOME/Pictures/Wallpapers"
+cp -rf "$REPO_ROOT/config/wallpapers/"*.png /etc/maialinux-runtime/wallpapers/
+cp -rf "$REPO_ROOT/images/"*.png /etc/maialinux-runtime/wallpapers/ 2>/dev/null || true
+cp -f "$REPO_ROOT/config/wallpapers/MaiaLinux_at_Neon_Twilight_640x480.png" /etc/maialinux-runtime/wallpaper.png
+cp -rf "$REPO_ROOT/config/boot/"* /etc/maialinux-runtime/boot/
+cp -rf "$REPO_ROOT/config/plymouth/"* /etc/maialinux-runtime/plymouth/
+cp -rf "$REPO_ROOT/config/emulationstation/"* /etc/maialinux-runtime/emulationstation/
+if [[ -d /roms/launchimages ]]; then
+    [[ ! -f /roms/launchimages/loading.jpg.orig && -f /roms/launchimages/loading.jpg ]] && cp -f /roms/launchimages/loading.jpg /roms/launchimages/loading.jpg.orig
+    cp -f "$REPO_ROOT/config/boot/loading.jpg" /roms/launchimages/loading.jpg
+    cp -f "$REPO_ROOT/config/boot/loading-640x480.jpg" /roms/launchimages/loading-640x480.jpg
+    cp -f "$REPO_ROOT/config/boot/loading-1920x1080.jpg" /roms/launchimages/loading-1920x1080.jpg
+fi
+/usr/local/bin/maialinux-boot-setup.sh || true
 
 # Configure user 'ark' groups
 usermod -aG video,input,render,audio,tty "$TARGET_USER" 2>/dev/null || true
@@ -244,8 +268,10 @@ install -m 644 "$REPO_ROOT/config/geany/geany.conf" "$TARGET_HOME/.config/geany/
 
 # Install Desktop and Application shortcuts
 install -m 755 "$REPO_ROOT/config/desktop-entries/maialinux-keyboard.desktop" /usr/local/share/applications/maialinux-keyboard.desktop
+install -m 755 "$REPO_ROOT/config/desktop-entries/maialinux-wallpaper.desktop" /usr/local/share/applications/maialinux-wallpaper.desktop
 install -m 755 "$REPO_ROOT/config/desktop-entries/return-to-es.desktop" /usr/local/share/applications/return-to-es.desktop
 install -m 755 "$REPO_ROOT/config/desktop-entries/maialinux-keyboard.desktop" "$TARGET_HOME/Desktop/maialinux-keyboard.desktop"
+install -m 755 "$REPO_ROOT/config/desktop-entries/maialinux-wallpaper.desktop" "$TARGET_HOME/Desktop/maialinux-wallpaper.desktop"
 install -m 755 "$REPO_ROOT/config/desktop-entries/geany-dev.desktop" "$TARGET_HOME/Desktop/geany-dev.desktop"
 install -m 755 "$REPO_ROOT/config/desktop-entries/qterminal-dev.desktop" "$TARGET_HOME/Desktop/qterminal-dev.desktop"
 install -m 755 "$REPO_ROOT/config/desktop-entries/maialinux-projects.desktop" "$TARGET_HOME/Desktop/maialinux-projects.desktop"

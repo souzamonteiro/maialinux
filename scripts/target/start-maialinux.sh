@@ -34,7 +34,13 @@ cat > "$CUR_TTY" 2>/dev/null << 'EOF' || true
 Initializing swap, controls, and X11 server...
 EOF
 
-# 0. Ensure runtime headers, Wayland-EGL shim, Openbox/PCManFM configs, and starter binaries are synced
+# 0. Ensure runtime headers, Wayland-EGL shim, Openbox/PCManFM configs, wallpapers, boot splash, and starter binaries are synced
+if [[ -x /usr/local/bin/maialinux-boot-setup.sh ]]; then
+    sudo /usr/local/bin/maialinux-boot-setup.sh 2>/dev/null || true
+fi
+if [[ -x /usr/local/bin/maialinux-wallpaper.sh ]]; then
+    /usr/local/bin/maialinux-wallpaper.sh auto 2>/dev/null || true
+fi
 if [[ -d /etc/maialinux-runtime/include ]] && [[ ! -f /usr/include/stdio.h ]]; then
     sudo cp -af /etc/maialinux-runtime/include/. /usr/include/ 2>/dev/null || true
 fi
