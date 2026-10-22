@@ -6,3 +6,4 @@ Exec=/usr/local/bin/maialinux-wallpaper.sh toggle
 Icon=preferences-desktop-wallpaper
 Terminal=false
 Categories=Settings;DesktopSettings;
+

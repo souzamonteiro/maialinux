@@ -32,3 +32,4 @@ fun message_callback(text) {
 }
 Plymouth.SetMessageFunction(message_callback);
 Plymouth.SetUpdateStatusFunction(message_callback);
+

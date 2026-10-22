@@ -69,3 +69,4 @@ if [[ -f "$ES_CFG" ]]; then
 fi
 
 echo "MaiaLinux Wallpaper set to: ${MODE_LABEL}"
+
