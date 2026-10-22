@@ -70,12 +70,20 @@ else
 fi
 
 echo ""
-echo "3. Development Toolchain & Libraries (C/C++, Python3, SDL2, GTK3, Qt5):"
+echo "3. Development Toolchain, Headers & Libraries (C/C++, Python3, SDL2, GTK3, Qt5):"
 for cmd in gcc g++ make cmake gdb git pkg-config tmux htop python3 pip3 sdl2-config; do
     if command -v "$cmd" >/dev/null 2>&1; then
         pass "Dev tool '$cmd' available"
     else
         fail "Dev tool '$cmd' missing"
+    fi
+done
+
+for hdr in /usr/include/stdio.h /usr/include/SDL2/SDL.h /usr/include/gtk-3.0/gtk/gtk.h; do
+    if [[ -f "$hdr" ]]; then
+        pass "Header '$hdr' present"
+    else
+        fail "Header '$hdr' missing"
     fi
 done
 
@@ -92,6 +100,14 @@ if python3 -c "import tkinter, pygame" >/dev/null 2>&1; then
 else
     warn "Python3 tkinter or pygame module could not be imported"
 fi
+
+for bin in /home/ark/projects/hello-c/hello-rg353v /home/ark/projects/hello-sdl2/sdl2-demo; do
+    if [[ -x "$bin" ]]; then
+        pass "Compiled starter binary '$bin' ready"
+    else
+        fail "Compiled starter binary '$bin' missing"
+    fi
+done
 
 echo ""
 echo "4. Controls, Swap, Launchers & Example Projects:"

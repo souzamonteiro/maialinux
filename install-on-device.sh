@@ -36,6 +36,12 @@ mkdir -p /opt/maialinux /etc/maialinux
 install -m 755 "$REPO_ROOT/scripts/target/fix-mali-symlinks.sh" /usr/local/bin/fix-mali-symlinks.sh
 /usr/local/bin/fix-mali-symlinks.sh --backup
 
+# Remove ArkOS dpkg path-exclude on /usr/lib/{aarch64-linux-gnu,arm-linux-gnueabihf} if present
+# so dev libraries and headers unpack cleanly; fix-mali-symlinks.sh restores Mali blobs afterwards.
+if [[ -f /etc/dpkg/dpkg.cfg.d/excludes ]]; then
+    mv /etc/dpkg/dpkg.cfg.d/excludes /opt/maialinux/dpkg-excludes.bak
+fi
+
 log_step "2/9 Configuring Ubuntu 19.10 (Eoan) old-releases APT repositories"
 if [[ ! -f /etc/apt/sources.list.orig ]]; then
     cp -a /etc/apt/sources.list /etc/apt/sources.list.orig 2>/dev/null || true
@@ -64,10 +70,6 @@ EOF
 apt-get update
 
 log_step "3/9 Resolving ArkOS libmali / libwayland-egl1 dpkg conflict"
-# ArkOS ships a custom package 'libmali-rk-bifrost-g31-rxp0-wayland-gbm' that claims
-# libwayland-egl.so.1 and blocks standard X11/GTK3/Qt5/LXQt packages from installing.
-# Since we backed up the real G52 GBM binary and restore all symlinks after apt finishes,
-# we safely remove the conflicting package metadata first.
 rm -f /lib/aarch64-linux-gnu/libwayland-egl.so* /usr/lib/aarch64-linux-gnu/libwayland-egl.so* 2>/dev/null || true
 if dpkg -s libmali-rk-bifrost-g31-rxp0-wayland-gbm >/dev/null 2>&1; then
     dpkg --remove --force-all libmali-rk-bifrost-g31-rxp0-wayland-gbm || true
@@ -168,6 +170,24 @@ PACKAGES=(
 
 apt-get install -y "${PACKAGES[@]}"
 
+# ArkOS base image strips /usr/include/* while leaving *-dev packages marked as installed.
+# Detect any installed *-dev package with missing /usr/include headers and reinstall it.
+log_info "Checking for stripped /usr/include headers from ArkOS base image..."
+MISSING_HEADER_PKGS=()
+for pkg in $(dpkg-query -W -f='${Package}\n' '*-dev' 2>/dev/null); do
+    while IFS= read -r hdr; do
+        if [[ -n "$hdr" && ! -e "$hdr" ]]; then
+            MISSING_HEADER_PKGS+=("$pkg")
+            break
+        fi
+    done < <(dpkg -L "$pkg" 2>/dev/null | grep '^/usr/include/')
+done
+
+if [[ ${#MISSING_HEADER_PKGS[@]} -gt 0 ]]; then
+    log_info "Restoring stripped headers for ${#MISSING_HEADER_PKGS[@]} -dev packages..."
+    apt-get install -y --reinstall "${MISSING_HEADER_PKGS[@]}"
+fi
+
 # Ensure display managers (lightdm/sddm/gdm) are disabled so they don't fight EmulationStation
 for dm in lightdm sddm gdm gdm3 lxdm; do
     systemctl disable "$dm" 2>/dev/null || true
@@ -202,7 +222,7 @@ for tools_dir in /roms/tools /opt/system/Tools; do
     install -m 755 "$REPO_ROOT/scripts/target/switch-boot-mode.sh" "$tools_dir/Switch-Boot-Mode.sh"
 done
 
-# Configure user 'ark' groups and passwordless sudo for MaiaLinux helper scripts
+# Configure user 'ark' groups
 usermod -aG video,input,render,audio,tty "$TARGET_USER" 2>/dev/null || true
 
 # Install LXQt, Openbox, PCManFM-Qt, and Geany 640x480 profile for user 'ark'
@@ -234,12 +254,8 @@ install -m 755 "$REPO_ROOT/config/desktop-entries/return-to-es.desktop" "$TARGET
 log_step "7/9 Installing & compiling starter development projects in ~/projects"
 cp -rf "$REPO_ROOT/examples/"* "$TARGET_HOME/projects/"
 
-if [[ -f "$TARGET_HOME/projects/hello-c/Makefile" ]]; then
-    make -C "$TARGET_HOME/projects/hello-c" clean all || log_warn "Could not precompile hello-c"
-fi
-if [[ -f "$TARGET_HOME/projects/hello-sdl2/Makefile" ]]; then
-    make -C "$TARGET_HOME/projects/hello-sdl2" clean all || log_warn "Could not precompile hello-sdl2"
-fi
+make -C "$TARGET_HOME/projects/hello-c" clean all
+make -C "$TARGET_HOME/projects/hello-sdl2" clean all
 
 chown -R "${TARGET_UID}:${TARGET_GID}" "$TARGET_HOME/.config" "$TARGET_HOME/Desktop" "$TARGET_HOME/projects" /roms/tools /opt/system/Tools 2>/dev/null || true
 
@@ -248,12 +264,10 @@ if [[ "${SKIP_SWAP_CREATE:-0}" != "1" ]]; then
     /usr/local/bin/maialinux-swap.sh create
 fi
 
-# Ensure SSH host keys exist and SSH is enabled
 ssh-keygen -A >/dev/null 2>&1 || true
 echo "${TARGET_USER}:arkos" | chpasswd || true
 systemctl enable ssh 2>/dev/null || true
 
-# Install systemd unit for Desktop-First mode and set default to Dual-Mode (EmulationStation)
 install -m 644 "$REPO_ROOT/config/systemd/maialinux-desktop.service" /etc/systemd/system/maialinux-desktop.service
 systemctl disable maialinux-desktop.service 2>/dev/null || true
 systemctl enable emulationstation.service 2>/dev/null || true

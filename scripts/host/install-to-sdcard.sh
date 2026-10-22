@@ -25,9 +25,10 @@ echo "  Target Rootfs : $ROOTFS"
 echo "  Source Repo   : $REPO_ROOT"
 echo "============================================================"
 
-# Copy repository into /opt/maialinux inside target rootfs for reproducibility
-mkdir -p "$ROOTFS/opt/maialinux"
+# Copy repository into /opt/maialinux and /roms/tools/MaiaLinux inside target rootfs
+mkdir -p "$ROOTFS/opt/maialinux" "$ROOTFS/roms/tools/MaiaLinux"
 rsync -a --delete --exclude '.git' "$REPO_ROOT/" "$ROOTFS/opt/maialinux/"
+rsync -a --delete --exclude '.git' "$REPO_ROOT/" "$ROOTFS/roms/tools/MaiaLinux/"
 
 # Run the installer inside the ARM64 chroot
 "$SCRIPT_DIR/chroot-run.sh" "$ROOTFS" /bin/bash /opt/maialinux/install-on-device.sh
