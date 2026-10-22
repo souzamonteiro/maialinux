@@ -1,0 +1,144 @@
+#!/usr/bin/env bash
+# fix-mali-symlinks.sh
+# Preserves and restores ArkOS Mali Bifrost G52 GPU drivers (aarch64 & armhf)
+# and fixes non-symlink shared libraries so both EmulationStation/RetroArch (GBM/GLES)
+# and Xorg/LXQt (modesetting/X11) coexist without library conflicts.
+
+set -euo pipefail
+
+BACKUP_DIR="/opt/maialinux/backup/mali"
+AARCH64_DIR="/usr/lib/aarch64-linux-gnu"
+ARMHF_DIR="/usr/lib/arm-linux-gnueabihf"
+
+log_info() { echo -e "\033[0;32m[MALI-FIX]\033[0m $1"; }
+log_warn() { echo -e "\033[1;33m[MALI-WARN]\033[0m $1"; }
+
+backup_mali() {
+    mkdir -p "$BACKUP_DIR/aarch64" "$BACKUP_DIR/armhf"
+    if [[ -f "$AARCH64_DIR/libmali-bifrost-g52-g2p0-gbm.so" ]]; then
+        cp -af "$AARCH64_DIR/libmali-bifrost-g52-g2p0-gbm.so" "$BACKUP_DIR/aarch64/"
+        log_info "Backed up aarch64 libmali-bifrost-g52-g2p0-gbm.so"
+    fi
+    if [[ -f "$ARMHF_DIR/libmali-bifrost-g52-g2p0-gbm.so" ]]; then
+        cp -af "$ARMHF_DIR/libmali-bifrost-g52-g2p0-gbm.so" "$BACKUP_DIR/armhf/"
+        log_info "Backed up armhf libmali-bifrost-g52-g2p0-gbm.so"
+    fi
+}
+
+setup_arch_mali_links() {
+    local libdir="$1"
+    local backup_sub="$2"
+    local blob="libmali-bifrost-g52-g2p0-gbm.so"
+
+    if [[ ! -d "$libdir" ]]; then
+        return 0
+    fi
+
+    # Restore blob from backup if missing or truncated
+    if [[ ! -f "$libdir/$blob" ]] || [[ $(stat -c%s "$libdir/$blob" 2>/dev/null || echo 0) -lt 1000000 ]]; then
+        if [[ -f "$BACKUP_DIR/$backup_sub/$blob" ]]; then
+            cp -af "$BACKUP_DIR/$backup_sub/$blob" "$libdir/$blob"
+            chmod 755 "$libdir/$blob"
+            log_info "Restored $libdir/$blob from backup"
+        else
+            log_warn "Blob $libdir/$blob not found in backup!"
+            return 0
+        fi
+    fi
+
+    # Point libMali.so to the Bifrost G52 GBM blob
+    ln -sf "$libdir/$blob" "$libdir/libMali.so"
+
+    # Point all GBM / EGL / GLES / Wayland-EGL / OpenCL links to libMali.so
+    local mali_links=(
+        "libmali.so"
+        "libmali.so.1"
+        "libEGL.so"
+        "libEGL.so.1"
+        "libGLES_CM.so"
+        "libGLES_CM.so.1"
+        "libGLESv1_CM.so"
+        "libGLESv1_CM.so.1"
+        "libGLESv1_CM.so.1.1.0"
+        "libGLESv2.so"
+        "libGLESv2.so.2"
+        "libGLESv2.so.2.0.0"
+        "libGLESv2.so.2.1.0"
+        "libGLESv3.so"
+        "libGLESv3.so.3"
+        "libgbm.so"
+        "libgbm.so.1"
+        "libgbm.so.1.0.0"
+        "libwayland-egl.so"
+        "libwayland-egl.so.1"
+        "libwayland-egl.so.1.0.0"
+        "libMaliOpenCL.so"
+        "libMaliOpenCL.so.1"
+        "libOpenCL.so"
+    )
+
+    for link_name in "${mali_links[@]}"; do
+        rm -f "$libdir/$link_name"
+        ln -sf "$libdir/libMali.so" "$libdir/$link_name"
+    done
+
+    log_info "Configured Mali GBM/EGL/GLES symlinks in $libdir"
+}
+
+fix_duplicate_soname_files() {
+    # Fixes ArkOS rootfs files where libFoo.so.X is a duplicate regular file
+    # instead of a symlink to libFoo.so.X.Y.Z, which triggers ldconfig warnings.
+    local known_SONAMES=(
+        "$AARCH64_DIR/libSDL2_gfx-1.0.so.0"
+        "$AARCH64_DIR/libnm.so.0"
+        "$ARMHF_DIR/libQt5EglFSDeviceIntegration.so.5"
+        "$ARMHF_DIR/libpcre2-16.so.0"
+        "$ARMHF_DIR/libQt5OpenGL.so.5"
+        "$ARMHF_DIR/libQt5Core.so.5"
+        "$ARMHF_DIR/libSDL2_net-2.0.so.0"
+        "$ARMHF_DIR/libQt5EglFsKmsSupport.so.5"
+        "$ARMHF_DIR/libQt5DBus.so.5"
+        "$ARMHF_DIR/libQt5Svg.so.5"
+        "$ARMHF_DIR/libQt5XcbQpa.so.5"
+        "$ARMHF_DIR/libQt5Network.so.5"
+        "$ARMHF_DIR/libQt5Gui.so.5"
+        "$ARMHF_DIR/libQt5Widgets.so.5"
+        "$ARMHF_DIR/libdouble-conversion.so.3"
+    )
+
+    for soname_path in "${known_SONAMES[@]}"; do
+        if [[ -f "$soname_path" && ! -L "$soname_path" ]]; then
+            local dir
+            dir=$(dirname "$soname_path")
+            local base
+            base=$(basename "$soname_path")
+            local versioned
+            versioned=$(find "$dir" -maxdepth 1 -name "${base}.*" -type f | sort -V | tail -n 1)
+            local size
+            size=$(stat -c%s "$soname_path" 2>/dev/null || echo 0)
+
+            if [[ -n "$versioned" ]]; then
+                rm -f "$soname_path"
+                ln -sf "$(basename "$versioned")" "$soname_path"
+                log_info "Converted duplicate file to symlink: $base -> $(basename "$versioned")"
+            elif [[ "$size" -lt 100 ]]; then
+                rm -f "$soname_path"
+                log_info "Removed truncated library file: $soname_path ($size bytes)"
+            fi
+        fi
+    done
+}
+
+case "${1:---restore}" in
+    --backup)
+        backup_mali
+        ;;
+    --restore|*)
+        backup_mali
+        setup_arch_mali_links "$AARCH64_DIR" "aarch64"
+        setup_arch_mali_links "$ARMHF_DIR" "armhf"
+        fix_duplicate_soname_files
+        ldconfig
+        log_info "ldconfig cache rebuilt cleanly."
+        ;;
+esac

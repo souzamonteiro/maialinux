@@ -1,0 +1,45 @@
+# MaiaLinux Desktop Controller Mapping for Anbernic RG353V (via gptokeyb)
+#
+# Left Analog Stick  -> Mouse Cursor
+# L1 / A             -> Left Mouse Click
+# R1 / B             -> Right Mouse Click
+# D-Pad & Right Stick-> Arrow Keys (Up/Down/Left/Right)
+# Select / Y         -> F12 (Toggle Virtual Keyboard)
+# Start              -> Enter
+# X                  -> Backspace
+# L2 / R2            -> PageUp / PageDown
+# L3                 -> Escape
+# R3                 -> F10 (Open Terminal)
+
+back = f12
+start = enter
+a = mouse_left
+b = mouse_right
+x = backspace
+y = f12
+l1 = mouse_left
+r1 = mouse_right
+l2 = pageup
+r2 = pagedown
+l3 = esc
+r3 = f10
+
+up = up
+down = down
+left = left
+right = right
+
+left_analog_up = mouse_movement_up
+left_analog_down = mouse_movement_down
+left_analog_left = mouse_movement_left
+left_analog_right = mouse_movement_right
+
+right_analog_up = up
+right_analog_down = down
+right_analog_left = left
+right_analog_right = right
+
+deadzone_x = 1500
+deadzone_y = 1500
+mouse_scale = 512
+mouse_delay = 12

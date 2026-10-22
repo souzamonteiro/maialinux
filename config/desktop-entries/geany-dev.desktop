@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Geany IDE
+Name[pt_BR]=Geany IDE (C/Python)
+Comment=Lightweight IDE optimized for RG353V 640x480 screen
+Exec=geany /home/ark/projects
+Icon=geany
+Terminal=false
+Categories=Development;IDE;

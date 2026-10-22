@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# maialinux-keyboard-toggle
+# Toggles the virtual keyboard (matchbox-keyboard or onboard) on/off in LXQt (640x480).
+
+set -u
+
+export DISPLAY="${DISPLAY:-:1}"
+
+if pgrep -x "matchbox-keyboa" >/dev/null 2>&1 || pgrep -f "matchbox-keyboard" >/dev/null 2>&1; then
+    pkill -f "matchbox-keyboard" >/dev/null 2>&1 || true
+    exit 0
+fi
+
+if pgrep -x "onboard" >/dev/null 2>&1; then
+    pkill -x "onboard" >/dev/null 2>&1 || true
+    exit 0
+fi
+
+# Prefer matchbox-keyboard on 640x480 because it is ultra-lightweight,
+# instant to toggle, and Openbox places it at x=0,y=276 (640x180) with no titlebar.
+if command -v matchbox-keyboard >/dev/null 2>&1; then
+    matchbox-keyboard >/dev/null 2>&1 &
+    exit 0
+elif command -v onboard >/dev/null 2>&1; then
+    onboard -x 0 -y 276 -s 640x180 >/dev/null 2>&1 &
+    exit 0
+fi
+
+echo "No virtual keyboard (matchbox-keyboard / onboard) found." >&2
+exit 1

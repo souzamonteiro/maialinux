@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Return to EmulationStation
+Name[pt_BR]=Voltar aos Jogos (ES)
+Comment=Exit MaiaLinux Desktop and return to EmulationStation
+Exec=/usr/local/bin/maialinux-return-to-es
+Icon=applications-games
+Terminal=false
+Categories=System;Game;

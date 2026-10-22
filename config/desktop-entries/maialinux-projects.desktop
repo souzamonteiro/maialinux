@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Dev Projects
+Name[pt_BR]=Meus Projetos (C/SDL2/Py)
+Comment=Open ~/projects folder with ready-to-compile RG353V examples
+Exec=pcmanfm-qt /home/ark/projects
+Icon=folder-development
+Terminal=false
+Categories=Development;Utility;

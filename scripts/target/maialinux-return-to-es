@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# maialinux-return-to-es
+# Exits the current LXQt session cleanly and returns to EmulationStation.
+
+set -u
+
+# If booted in Desktop-First mode via systemd service, switch to EmulationStation service
+if systemctl is-active --quiet maialinux-desktop.service 2>/dev/null; then
+    sudo systemctl start emulationstation.service &
+    sudo systemctl stop maialinux-desktop.service &
+    exit 0
+fi
+
+# Otherwise, cleanly terminate the LXQt session started from EmulationStation Tools
+if command -v lxqt-leave >/dev/null 2>&1; then
+    lxqt-leave --logout
+else
+    pkill -TERM -f "lxqt-session" || pkill -TERM -x "openbox" || true
+fi

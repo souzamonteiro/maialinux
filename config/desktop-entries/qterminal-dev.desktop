@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=QTerminal
+Name[pt_BR]=Terminal (R3/F10)
+Comment=Terminal Emulator for RG353V
+Exec=qterminal
+Icon=utilities-terminal
+Terminal=false
+Categories=System;TerminalEmulator;

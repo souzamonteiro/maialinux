@@ -1,0 +1,10 @@
+build/
+*.img
+*.img.xz
+*.img.gz
+*.log
+*.swp
+*~
+.DS_Store
+__pycache__/
+*.py[cod]
