@@ -35,11 +35,15 @@ Initializing swap, controls, and X11 server...
 EOF
 
 # 0. Ensure runtime headers, Wayland-EGL shim, Openbox/PCManFM configs, wallpapers, boot splash, and starter binaries are synced
-if [[ -x /usr/local/bin/maialinux-boot-setup.sh ]]; then
+if [[ -x /etc/maialinux-runtime/maialinux-boot-setup.sh ]]; then
+    sudo /etc/maialinux-runtime/maialinux-boot-setup.sh 2>/dev/null || true
+elif [[ -x /usr/local/bin/maialinux-boot-setup.sh ]]; then
     sudo /usr/local/bin/maialinux-boot-setup.sh 2>/dev/null || true
 fi
 if [[ -x /usr/local/bin/maialinux-wallpaper.sh ]]; then
     /usr/local/bin/maialinux-wallpaper.sh auto 2>/dev/null || true
+elif [[ -x /etc/maialinux-runtime/maialinux-wallpaper.sh ]]; then
+    /etc/maialinux-runtime/maialinux-wallpaper.sh auto 2>/dev/null || true
 fi
 if [[ -d /etc/maialinux-runtime/include ]] && [[ ! -f /usr/include/stdio.h ]]; then
     sudo cp -af /etc/maialinux-runtime/include/. /usr/include/ 2>/dev/null || true
@@ -100,12 +104,12 @@ if [[ -x "$GPTOKEYB_BIN" ]] && [[ -f "$GPTOKEYB_CONF" ]]; then
     echo "Started gptokeyb controller mapper (PID: $GPTOKEYB_PID)"
 fi
 
-# 5. Start Xorg + LXQt session
+# 5. Start Xorg + LXQt session (do NOT pass -logfile when Xorg runs setuid-root with elevated privileges)
 if ! pgrep -x "Xorg" >/dev/null 2>&1; then
     sudo rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 2>/dev/null || true
 fi
 
-startx /usr/bin/startlxqt -- "$X_DISPLAY" "$X_VT" -keeptty -logfile /tmp/Xorg.maialinux.log
+startx /usr/bin/startlxqt -- "$X_DISPLAY" "$X_VT" > "$CUR_TTY" 2>&1
 
 # 6. Cleanup on session exit
 echo "Cleaning up MaiaLinux session..."

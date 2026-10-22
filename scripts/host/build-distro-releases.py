@@ -223,14 +223,14 @@ def build_part4_rootfs(part4_img: str, extra_sectors: int) -> int:
             out.write(f"mkdir {q(rel_p)}\n")
             out.write(f"set_inode_field {q(rel_p)} uid {uid}\n")
             out.write(f"set_inode_field {q(rel_p)} gid {gid}\n")
-            out.write(f"set_inode_field {q(rel_p)} mode {oct(mode)[2:]}\n")
+            out.write(f"set_inode_field {q(rel_p)} mode 0{oct(mode)[2:]}\n")
 
         for full_p, rel_p, uid, gid, mode in files_to_write:
             out.write(f"rm {q(rel_p)}\n")
             out.write(f"write {q(full_p)} {q(rel_p)}\n")
             out.write(f"set_inode_field {q(rel_p)} uid {uid}\n")
             out.write(f"set_inode_field {q(rel_p)} gid {gid}\n")
-            out.write(f"set_inode_field {q(rel_p)} mode {oct(mode)[2:]}\n")
+            out.write(f"set_inode_field {q(rel_p)} mode 0{oct(mode)[2:]}\n")
 
         for rel_p, target, uid, gid in symlinks_to_create:
             out.write(f"rm {q(rel_p)}\n")
