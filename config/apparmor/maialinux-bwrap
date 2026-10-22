@@ -1,0 +1,7 @@
+# Scoped Ubuntu user namespace permission for the packaged Bubblewrap executable.
+abi <abi/4.0>,
+include <tunables/global>
+
+profile maialinux-bwrap /usr/bin/bwrap flags=(unconfined) {
+    userns,
+}

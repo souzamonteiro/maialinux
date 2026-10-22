@@ -10,10 +10,28 @@
 
 set -euo pipefail
 
+if [[ "$EUID" -eq 0 ]]; then
+    echo "Run the QEMU desktop as your normal desktop user, without sudo." >&2
+    exit 1
+fi
+
+for tool in Xephyr xdpyinfo bwrap; do
+    command -v "$tool" >/dev/null || { echo "Missing prerequisite: $tool" >&2; exit 1; }
+done
+# Check the actual UID mapping before opening a graphical window.
+if ! USERNS_ERROR=$(bwrap --unshare-user --uid 1002 --gid 1002 --ro-bind / / -- /usr/bin/true 2>&1); then
+    echo "$USERNS_ERROR" >&2
+    echo "The host blocked Bubblewrap user namespaces. Check the AppArmor/kernel log." >&2
+    echo "Optional Ubuntu administrator setup: $(dirname "${BASH_SOURCE[0]}")/setup-qemu-userns.sh" >&2
+    exit 1
+fi
+
 ROOTFS="${1:-/media/roberto/root}"
 MODE="${2:---interactive}"
 SCREENSHOT_OUT="${SCREENSHOT_OUT:-/tmp/maialinux-qemu-640x480.png}"
 TEST_DISPLAY=":42"
+LOG_DIR="$(mktemp -d /tmp/maialinux-qemu-logs.XXXXXX)"
+echo "Session logs: $LOG_DIR"
 
 if [[ ! -d "$ROOTFS/usr/lib/aarch64-linux-gnu" ]]; then
     echo "Error: ARM64 rootfs not found at '$ROOTFS'" >&2
@@ -28,8 +46,7 @@ echo "============================================================"
 
 # Prepare temporary /home/ark overlay with our latest 640x480 configs & compiled examples
 # (Skip copying 2.5 GB of .config/retroarch so startup is instant and uses <1 MB of /tmp)
-SIM_HOME="/tmp/maialinux-sim-home"
-rm -rf "$SIM_HOME"
+SIM_HOME="$(mktemp -d /tmp/maialinux-sim-home.XXXXXX)"
 mkdir -p "$SIM_HOME/.config/lxqt" \
          "$SIM_HOME/.config/openbox" \
          "$SIM_HOME/.config/pcmanfm-qt/lxqt" \
@@ -69,7 +86,7 @@ for disp_num in 42 43 44 45 46; do
 done
 
 # Start Xephyr 640x480 window on host X11 display
-Xephyr "$TEST_DISPLAY" -screen 640x480 -title "MaiaLinux RG353V (640x480 ARM64 QEMU)" -ac -br >/dev/null 2>&1 &
+Xephyr "$TEST_DISPLAY" -screen 640x480 -title "MaiaLinux RG353V (640x480 ARM64 QEMU)" -ac -br >"$LOG_DIR/xephyr.log" 2>&1 &
 XEPHYR_PID=$!
 BWRAP_PID=""
 
@@ -79,12 +96,25 @@ cleanup() {
 }
 trap cleanup EXIT
 
-sleep 1
+for attempt in {1..50}; do
+    if ! kill -0 "$XEPHYR_PID" 2>/dev/null; then
+        cat "$LOG_DIR/xephyr.log" >&2
+        exit 1
+    fi
+    if DISPLAY="$TEST_DISPLAY" xdpyinfo >/dev/null 2>&1; then
+        break
+    fi
+    sleep 0.1
+done
+if ! DISPLAY="$TEST_DISPLAY" xdpyinfo >/dev/null 2>&1; then
+    echo "Xephyr display $TEST_DISPLAY is unavailable; see $LOG_DIR/xephyr.log" >&2
+    exit 1
+fi
 
 # Run the entire ARM64 LXQt session inside Bubblewrap chroot mapped to user ark (UID 1002)
 bwrap \
     --unshare-user --uid 1002 --gid 1002 \
-    --die-with-parent \
+    --die-with-parent --unshare-pid \
     --ro-bind "$ROOTFS" / \
     --dev /dev \
     --proc /proc \
@@ -94,38 +124,52 @@ bwrap \
     --setenv HOME "/home/ark" \
     --setenv USER "ark" \
     --setenv LOGNAME "ark" \
-    --setenv XDG_RUNTIME_DIR "/tmp/runtime-ark" \
+    --setenv XDG_RUNTIME_DIR "$SIM_HOME/.runtime" \
+    --setenv MAIALINUX_LOG_DIR "$LOG_DIR" \
+    --unsetenv SESSION_MANAGER \
+    --unsetenv DBUS_SESSION_BUS_ADDRESS \
     --setenv XDG_SESSION_TYPE "x11" \
     --setenv XDG_CURRENT_DESKTOP "LXQt" \
     --setenv QT_QPA_PLATFORM "xcb" \
+    --setenv QT_XCB_GL_INTEGRATION "none" \
     --setenv QT_QPA_PLATFORMTHEME "lxqt" \
     --setenv GDK_BACKEND "x11" \
     --setenv LD_LIBRARY_PATH "/etc/maialinux-runtime/lib:/usr/lib/aarch64-linux-gnu:/lib/aarch64-linux-gnu" \
     --setenv C_INCLUDE_PATH "/etc/maialinux-runtime/include:/etc/maialinux-runtime/include/aarch64-linux-gnu:/usr/include/aarch64-linux-gnu:/usr/include" \
     /usr/bin/qemu-aarch64-static /bin/bash -c '
-        mkdir -p /tmp/runtime-ark && chmod 700 /tmp/runtime-ark
+        mkdir -p "$XDG_RUNTIME_DIR" && chmod 700 "$XDG_RUNTIME_DIR"
 
         # Start D-Bus session
-        eval $(dbus-launch --sh-syntax)
+        set -e
+        DBUS_ENV=$(dbus-launch --sh-syntax)
+        eval "$DBUS_ENV"
+        # This signal is confined to the private PID namespace created above.
+        trap "kill -TERM -1 2>/dev/null || true" EXIT
 
-        # Start Openbox with 640x480 rules
-        openbox --config-file /home/ark/.config/openbox/lxqt-rc.xml >/tmp/bwrap-openbox.log 2>&1 &
-        sleep 0.8
+        # Use the same LXQt entry point as the handheld launcher.
+        startlxqt >"$MAIALINUX_LOG_DIR/lxqt-session.log" 2>&1 &
+        SESSION_PID=$!
 
-        # Start PCManFM-Qt Desktop & LXQt 24px Bottom Panel first
-        pcmanfm-qt --desktop --profile=lxqt >/tmp/bwrap-pcmanfm.log 2>&1 &
-        lxqt-panel >/tmp/bwrap-panel.log 2>&1 &
-        sleep 2.2
+        # Slow SD cards need a real readiness check, not only fixed sleeps.
+        READY=false
+        for attempt in {1..120}; do
+            kill -0 "$SESSION_PID" || exit 1
+            if xprop -root _NET_SUPPORTING_WM_CHECK 2>/dev/null | grep -q "window id" &&
+               xwininfo -root -tree 2>/dev/null | grep -Eq "640x24[+]0[+]456"; then
+                READY=true
+                break
+            fi
+            sleep 0.5
+        done
+        if [[ "$READY" != true ]]; then
+            echo "Desktop did not become ready; inspect $MAIALINUX_LOG_DIR" >&2
+            exit 1
+        fi
 
-        # Launch Geany IDE in foreground with SDL2 C project
-        geany -i /home/ark/projects/hello-sdl2/main.c >/tmp/bwrap-geany.log 2>&1 &
-        sleep 3
+        # A normal desktop starts without demo applications or an open keyboard.
+        sleep 5
 
-        # Launch docked Matchbox Virtual Keyboard at bottom (y=296, 640x160)
-        matchbox-keyboard >/tmp/bwrap-mbk.log 2>&1 &
-        sleep 1.5
-
-        scrot -D "'"$TEST_DISPLAY"'" /tmp/bwrap-screen.png 2>/dev/null || import -display "'"$TEST_DISPLAY"'" -window root /tmp/bwrap-screen.png 2>/dev/null || true
+        scrot "$MAIALINUX_LOG_DIR/screen.png" 2>/dev/null || import -window root "$MAIALINUX_LOG_DIR/screen.png"
 
         if [[ "'"$MODE"'" == "--interactive" ]]; then
             echo "==> MaiaLinux 640x480 QEMU window is ready! Close the window or press Ctrl+C to exit."
@@ -135,12 +179,18 @@ bwrap \
 BWRAP_PID=$!
 
 if [[ "$MODE" == "--interactive" ]]; then
-    wait "$XEPHYR_PID" 2>/dev/null || true
+    # Stop waiting on the window if the guest session fails during startup.
+    while kill -0 "$XEPHYR_PID" 2>/dev/null && kill -0 "$BWRAP_PID" 2>/dev/null; do
+        sleep 0.5
+    done
+    if ! kill -0 "$BWRAP_PID" 2>/dev/null; then
+        wait "$BWRAP_PID"
+    fi
 else
-    wait "$BWRAP_PID" 2>/dev/null || true
+    wait "$BWRAP_PID"
 fi
 
-if [[ -f /tmp/bwrap-screen.png ]]; then
-    cp -f /tmp/bwrap-screen.png "$SCREENSHOT_OUT"
+if [[ -f "$LOG_DIR/screen.png" ]]; then
+    cp -f "$LOG_DIR/screen.png" "$SCREENSHOT_OUT"
     echo "==> Captured 640x480 simulation screenshot: $SCREENSHOT_OUT"
 fi

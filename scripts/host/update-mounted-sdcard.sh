@@ -2,7 +2,7 @@
 # update-mounted-sdcard.sh
 # Quickly updates a mounted Anbernic RG353V ArkOS/MaiaLinux SD card (/media/$USER/root and /media/$USER/BOOT)
 # WITHOUT requiring sudo on the host PC, by writing to user-writable paths (/etc/maialinux-runtime,
-# /opt/system/Tools, /roms/tools, /home/ark, and /usr/bin/emulationstation/emulationstation.sh [mode 0777])
+# /opt/system/Tools, /roms/tools, /home/ark, and in-place to /usr/bin/emulationstation/emulationstation.sh [mode 0777])
 # and hooking maialinux-boot-setup.sh into the boot sequence.
 
 set -euo pipefail
@@ -54,17 +54,29 @@ cp -f "$REPO_ROOT/scripts/target/"*.sh "$RUNTIME_DIR/scripts/"
 cp -f "$REPO_ROOT/scripts/target/maialinux-return-to-es" "$RUNTIME_DIR/scripts/"
 cp -f "$REPO_ROOT/config/keyboard/maialinux-keyboard-toggle" "$RUNTIME_DIR/scripts/"
 cp -f "$REPO_ROOT/scripts/target/maialinux-boot-setup.sh" "$RUNTIME_DIR/maialinux-boot-setup.sh"
+cp -f "$REPO_ROOT/config/systemd/emulationstation.service.d/maialinux.conf" "$RUNTIME_DIR/emulationstation.conf"
 cp -f "$REPO_ROOT/scripts/target/maialinux-wallpaper.sh" "$RUNTIME_DIR/maialinux-wallpaper.sh"
 chmod +x "$RUNTIME_DIR/scripts/"* "$RUNTIME_DIR/maialinux-boot-setup.sh" "$RUNTIME_DIR/maialinux-wallpaper.sh" 2>/dev/null || true
 
 # Also copy directly to /usr/local/bin if writable
 for s in "$RUNTIME_DIR/scripts/"*; do
     cp -f "$s" "$ROOTFS/usr/local/bin/$(basename "$s")" 2>/dev/null || true
+    chmod +x "$ROOTFS/usr/local/bin/$(basename "$s")" 2>/dev/null || true
 done
 
 # 2. Update EmulationStation Tools launchers (fixes Xorg -logfile elevated privileges error)
+# Note: On ArkOS, /opt/system is mode 0777, while /opt/system/Tools may be 0755 owned by UID 1002.
+if [[ -d "$ROOTFS/opt/system/Tools" ]] && [[ ! -w "$ROOTFS/opt/system/Tools" ]] && [[ -w "$ROOTFS/opt/system" ]]; then
+    mkdir -p "$ROOTFS/opt/system/Tools.new"
+    cp -rf "$ROOTFS/opt/system/Tools/." "$ROOTFS/opt/system/Tools.new/"
+    chmod -R 777 "$ROOTFS/opt/system/Tools.new" 2>/dev/null || true
+    mv "$ROOTFS/opt/system/Tools" "$ROOTFS/opt/system/.Tools.old.$$"
+    mv "$ROOTFS/opt/system/Tools.new" "$ROOTFS/opt/system/Tools"
+    rm -rf "$ROOTFS/opt/system/.Tools.old.$$" 2>/dev/null || true
+fi
+
 for tools_dir in "$ROOTFS/opt/system/Tools" "$ROOTFS/roms/tools"; do
-    if [[ -d "$tools_dir" ]]; then
+    if [[ -d "$tools_dir" && -w "$tools_dir" ]]; then
         cp -f "$REPO_ROOT/scripts/target/start-maialinux.sh" "$tools_dir/Launch-MaiaLinux-LXQt.sh"
         cp -f "$REPO_ROOT/scripts/target/switch-boot-mode.sh" "$tools_dir/Switch-Boot-Mode.sh"
         cp -f "$REPO_ROOT/scripts/target/maialinux-wallpaper.sh" "$tools_dir/Switch-Wallpaper-4x3-HDMI.sh"
@@ -89,21 +101,50 @@ if [[ -d "$ROOTFS/roms/launchimages" ]]; then
     cp -f "$REPO_ROOT/config/boot/loading.jpg" "$ROOTFS/roms/launchimages/loading.jpg" 2>/dev/null || true
 fi
 
-# 4. Hook maialinux-boot-setup.sh into /usr/bin/emulationstation/emulationstation.sh (mode 0777, runs on every boot!)
-for es_sh in "$ROOTFS/usr/bin/emulationstation/emulationstation.sh" "$ROOTFS/usr/bin/emulationstation/emulationstation.sh.es"; do
-    if [[ -w "$es_sh" ]] && ! grep -q "maialinux-boot-setup.sh" "$es_sh"; then
-        sed -i '2i # MaiaLinux Boot & Splash Setup Hook\nif [ -x /etc/maialinux-runtime/maialinux-boot-setup.sh ]; then sudo /etc/maialinux-runtime/maialinux-boot-setup.sh --boot-splash >/dev/null 2>&1 || true; fi' "$es_sh"
-        echo "==> Hooked maialinux-boot-setup.sh into $(basename "$es_sh")"
-    fi
-done
+# 4. Hook maialinux-boot-setup.sh into /usr/bin/emulationstation/emulationstation.sh in-place (mode 0777, runs on every boot!)
+python3 - "$ROOTFS" << 'PYEOF'
+import os, sys
+
+rootfs = sys.argv[1]
+hook = (
+    "\n# MaiaLinux Boot & Splash Setup Hook\n"
+    "if [ -x /etc/maialinux-runtime/maialinux-boot-setup.sh ]; then\n"
+    "  sudo /etc/maialinux-runtime/maialinux-boot-setup.sh --boot-splash >/dev/null 2>&1 || true\n"
+    "fi\n"
+)
+
+for name in ("emulationstation.sh", "emulationstation.sh.es"):
+    p = os.path.join(rootfs, "usr/bin/emulationstation", name)
+    if os.path.isfile(p) and os.access(p, os.W_OK):
+        with open(p, "r", encoding="utf-8", errors="ignore") as f:
+            content = f.read()
+        if "maialinux-boot-setup.sh" not in content:
+            lines = content.splitlines(True)
+            if lines and lines[0].startswith("#!"):
+                new_content = lines[0] + hook + "".join(lines[1:])
+            else:
+                new_content = hook + content
+            with open(p, "w", encoding="utf-8") as f:
+                f.write(new_content)
+            print(f"==> Hooked maialinux-boot-setup.sh into {name}")
+PYEOF
 
 # 5. Update BOOT FAT32 partition if mounted
 if [[ -d "$BOOTFS" ]]; then
     cp -f "$REPO_ROOT/config/boot/logo.bmp" "$BOOTFS/logo.bmp" 2>/dev/null || true
     cp -f "$REPO_ROOT/config/boot/logo_kernel.bmp" "$BOOTFS/logo_kernel.bmp" 2>/dev/null || true
-    cp -f "$REPO_ROOT/config/boot/resource.img" "$BOOTFS/resource.img" 2>/dev/null || true
+    # Preserve original boot resources; custom resources require explicit installation.
     if [[ -w "$BOOTFS/extlinux/extlinux.conf" ]] && ! grep -q "plymouth.ignore-udev" "$BOOTFS/extlinux/extlinux.conf"; then
-        sed -i 's/splash/splash plymouth.ignore-udev/g' "$BOOTFS/extlinux/extlinux.conf"
+        python3 - "$BOOTFS/extlinux/extlinux.conf" << 'PYEOF'
+import sys
+p = sys.argv[1]
+with open(p, "r") as f:
+    c = f.read()
+if "plymouth.ignore-udev" not in c:
+    c = c.replace("splash", "splash plymouth.ignore-udev")
+    with open(p, "w") as f:
+        f.write(c)
+PYEOF
     fi
     echo "==> Updated BOOT partition at $BOOTFS"
 fi

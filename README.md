@@ -55,7 +55,7 @@ Download the pre-built release artifacts from the [**GitHub Releases**](../../re
    ```bash
    sha256sum -c MaiaLinux-RG353V-v1.0.0-sdcard.img.xz.sha256
    ```
-2. Flash **`MaiaLinux-RG353V-v1.0.0-sdcard.img.xz`** to a microSD card (**16GB or larger**, Samsung/SanDisk recommended):
+2. Flash **`MaiaLinux-RG353V-v1.0.0-sdcard.img.xz`** to a microSD card (**32GB or larger**, Samsung/SanDisk recommended):
    - **GUI (Windows / macOS / Linux)**: Open [**BalenaEtcher**](https://etcher.balena.io/) or [**Raspberry Pi Imager**](https://www.raspberrypi.com/software/), select `MaiaLinux-RG353V-v1.0.0-sdcard.img.xz` directly (no need to extract first), choose your microSD card, and click **Flash**.
    - **Linux CLI**:
      ```bash
@@ -63,14 +63,20 @@ Download the pre-built release artifacts from the [**GitHub Releases**](../../re
      sync
      ```
      *(Replace `/dev/sdX` or `/dev/mmcblkX` with your microSD card block device).*
-3. Insert the microSD card into the **TF1/INT** (top) slot of your Anbernic RG353V and power it on. On first boot, ArkOS/MaiaLinux automatically expands the `EASYROMS` partition to fill the rest of your SD card and flashes the custom MaiaLinux U-Boot/DRM boot splash.
+3. Insert the microSD card into the **TF1/INT** (top) slot of your Anbernic RG353V and power it on. The image provides a 16 GiB root filesystem and preserves the original RG353V boot resources. Extra card capacity remains available for a separately planned partition expansion; boot never rewrites the partition layout automatically.
 
 ### 2. Running the QEMU Image on a PC
 
-You can run MaiaLinux on an x86_64 Linux PC in two ways:
+On Ubuntu hosts, AppArmor may block Bubblewrap with `setting up uid map: Permission denied`.
+Inspect the kernel log before changing host policy. The optional
+`scripts/host/setup-qemu-userns.sh` installs `config/apparmor/maialinux-bwrap` for
+`/usr/bin/bwrap`; it requires explicit administrator approval because the permission
+applies to all invocations of that executable. The global restriction remains enabled.
+
+Use the graphical ARM64 desktop simulator on an x86_64 Linux PC as your logged-in desktop user, without `sudo`:
 
 - **Option A — 640×480 Graphical LXQt Desktop Simulator (`qemu-aarch64-static` + `bwrap` + `Xephyr`)**:
-  Install host prerequisites (`sudo apt install qemu-user-static bubblewrap xserver-xephyr libguestfs-tools`) and run:
+  Install host prerequisites (`sudo apt install qemu-user-static bubblewrap xserver-xephyr x11-utils libguestfs-tools`) and run:
   ```bash
   # Using a mounted SD card or extracted rootfs:
   make test-qemu
@@ -78,14 +84,15 @@ You can run MaiaLinux on an x86_64 Linux PC in two ways:
   # Or directly from distro/MaiaLinux-RG353V-v1.0.0-qemu.qcow2:
   ./scripts/host/run-qemu-image.sh --gui
   ```
-- **Option B — Full-System ARM64 Virtual Machine (`qemu-system-aarch64`)**:
-  Install `qemu-system-arm` (`sudo apt install qemu-system-arm`) and run:
-  ```bash
-  make run-qemu-vm
-  # or:
-  ./scripts/host/run-qemu-image.sh --vm
-  ```
-  *(Log in with user `ark` and password `arkos`; SSH is forwarded on `localhost:2222`).*
+Full-system `--vm` is experimental and requires an explicit `KERNEL_IMG` built for
+QEMU's ARM64 `virt` machine, plus an appropriate optional `INITRD_IMG`. The handheld's
+Rockchip kernel in `distro/Image` is not the VM kernel. The distributed QCOW2 is a
+root filesystem for the `--gui` simulator; it is not a self-booting VM disk.
+Distribute `qemu-support/` alongside the QCOW2 and `run-maialinux-qemu.sh`.
+
+Release images reserve a 16 GiB root partition and require a card of at least 32 GB.
+Free card capacity beyond the image does not automatically mean free root filesystem
+space. Inspect `lsblk` and `df -h /` separately before allocating swap.
 
 ---
 

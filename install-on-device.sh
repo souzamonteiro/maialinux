@@ -208,6 +208,8 @@ install -m 644 "$REPO_ROOT/config/xorg/Xwrapper.config" /etc/X11/Xwrapper.config
 install -m 644 "$REPO_ROOT/config/controls/desktop.gptk" /etc/maialinux/desktop.gptk
 
 # Install target management & launcher scripts
+install -Dm755 "$REPO_ROOT/scripts/target/maialinux-start-es.sh" /usr/local/bin/maialinux-start-es.sh
+install -Dm644 "$REPO_ROOT/config/systemd/emulationstation.service.d/maialinux.conf" /etc/systemd/system/emulationstation.service.d/maialinux.conf
 install -m 755 "$REPO_ROOT/config/keyboard/maialinux-keyboard-toggle" /usr/local/bin/maialinux-keyboard-toggle
 install -m 755 "$REPO_ROOT/scripts/target/maialinux-swap.sh" /usr/local/bin/maialinux-swap.sh
 install -m 755 "$REPO_ROOT/scripts/target/start-maialinux.sh" /usr/local/bin/start-maialinux.sh

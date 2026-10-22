@@ -10,10 +10,11 @@ It turns the RG353V into a complete **Dual-Mode Handheld Gaming Console + Linux 
 
 | File | Description | Target |
 | :--- | :--- | :--- |
-| **`MaiaLinux-RG353V-v1.0.0-sdcard.img.xz`** | Flashable GPT SD Card image (compressed with `xz`). Auto-expands on first boot to fill 16GB–512GB microSD cards. | **Anbernic RG353V (TF1/INT slot)** |
+| **`MaiaLinux-RG353V-v1.0.0-sdcard.img.xz`** | Flashable GPT SD Card image (compressed with `xz`). 16 GiB root filesystem; requires a microSD card of at least 32 GB. | **Anbernic RG353V (TF1/INT slot)** |
 | **`MaiaLinux-RG353V-v1.0.0-sdcard.img.xz.sha256`** | SHA-256 checksum for the SD Card image. | Verification |
-| **`MaiaLinux-RG353V-v1.0.0-qemu.qcow2`** | Compressed QCOW2 ARM64 root filesystem image for QEMU testing and emulation on a PC. | **QEMU (Linux / macOS / Windows)** |
+| **`MaiaLinux-RG353V-v1.0.0-qemu.qcow2`** | Compressed QCOW2 ARM64 root filesystem image for QEMU testing and emulation on a PC. | **Linux ARM64 desktop simulator** |
 | **`MaiaLinux-RG353V-v1.0.0-qemu.qcow2.sha256`** | SHA-256 checksum for the QEMU image. | Verification |
+| **`MaiaLinux-RG353V-v1.0.0-qemu-launcher.tar.xz`** | Runner and support files; extract beside the QCOW2 image. | Linux desktop simulator |
 
 ---
 
@@ -25,7 +26,7 @@ It turns the RG353V into a complete **Dual-Mode Handheld Gaming Console + Linux 
 - Return seamlessly from LXQt to EmulationStation using the **Return to Gaming (ES)** desktop shortcut.
 
 ### 2. Custom Bootloader, Plymouth & Dual-Resolution Wallpapers (4:3 & 16:9 HDMI)
-- **Rockchip `resource.img` Boot Splash**: Pre-packed `rk-kernel.dtb`, `logo.bmp` (U-Boot), and `logo_kernel.bmp` (Linux Kernel DRM) in Partition 2 (`resource`), displaying the **MaiaLinux at Neon Twilight** artwork from the first second of power-on.
+- **Original RG353V boot resources**: Preserves the base ArkOS resource partition and boot arguments. Desktop launch never flashes boot resources automatically.
 - **Resolution-Aware Plymouth Boot Theme**: Automatically detects `4:3` (`640×480` internal DSI display) vs. `16:9` (`1280×720` / `1920×1080` HDMI output).
 - **EmulationStation & LXQt Themes**: Includes both `4:3 (640×480)` and `16:9 (1920×1080 HDMI)` **MaiaLinux at Neon Twilight** wallpapers, with automatic HDMI detection on LXQt launch and one-click switching (`Wallpaper (4:3 / HDMI)` on the desktop or `Options → Tools → Switch-Wallpaper-4x3-HDMI`).
 
@@ -52,7 +53,7 @@ It turns the RG353V into a complete **Dual-Mode Handheld Gaming Console + Linux 
    ```bash
    sha256sum -c MaiaLinux-RG353V-v1.0.0-sdcard.img.xz.sha256
    ```
-2. Flash **`MaiaLinux-RG353V-v1.0.0-sdcard.img.xz`** to a microSD card (16GB or larger) using **BalenaEtcher**, **Raspberry Pi Imager**, or via terminal on Linux:
+2. Flash **`MaiaLinux-RG353V-v1.0.0-sdcard.img.xz`** to a microSD card (32GB or larger) using **BalenaEtcher**, **Raspberry Pi Imager**, or via terminal on Linux:
    ```bash
    xzcat MaiaLinux-RG353V-v1.0.0-sdcard.img.xz | sudo dd of=/dev/sdX bs=4M status=progress conv=fsync
    ```
@@ -67,8 +68,8 @@ It turns the RG353V into a complete **Dual-Mode Handheld Gaming Console + Linux 
 # Option A: Run the 640x480 ARM64 LXQt graphical desktop simulator (requires qemu-user-static, bubblewrap, xserver-xephyr):
 ./scripts/host/run-qemu-image.sh --gui
 
-# Option B: Boot the QEMU QCOW2 image in qemu-system-aarch64:
-./scripts/host/run-qemu-image.sh --vm
+# Experimental full-system mode requires a kernel built for QEMU ARM64 virt:
+KERNEL_IMG=/path/to/virt-compatible-Image ./scripts/host/run-qemu-image.sh --vm
 ```
 
 ---
@@ -78,3 +79,20 @@ It turns the RG353V into a complete **Dual-Mode Handheld Gaming Console + Linux 
 - **User**: `ark`
 - **Password**: `arkos`
 
+
+## Recovery build corrections
+
+- Root filesystem enlarged to 16 GiB to leave room for desktop tools and swap.
+- Persistent desktop/Xorg diagnostics in `~/.local/state/maialinux/`.
+- Simulator starts the full LXQt session, waits for the window manager and panel, and reaps guest processes on exit.
+- Projects and desktop profiles are injected explicitly and compared against their source files during builds.
+- Full-system VM mode requires an explicitly supplied QEMU-compatible kernel.
+- The QEMU distribution includes `qemu-support/`; keep it beside the runner script.
+
+## GPU and clean-session correction
+
+- Restores the backed-up Mali EGL driver and prevents Wayland library copies from following destination symlinks into the GPU driver.
+- GPU health checks now require the `eglInitialize` export.
+- QEMU starts the normal LXQt desktop without automatically opening Geany or the keyboard.
+- Legacy splash hooks do no framebuffer writes or installation work during early boot.
+- EmulationStation startup output is retained in `~/.local/state/maialinux/emulationstation.log`.

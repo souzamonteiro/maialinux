@@ -14,7 +14,7 @@ help:
 	@echo "=========================================="
 	@echo "  make build-distro        - Build SD card (.img.xz) & QEMU (.qcow2) releases in distro/ (rootless)"
 	@echo "  make test-qemu           - Launch interactive 640x480 ARM64 LXQt desktop window on host PC"
-	@echo "  make run-qemu-vm         - Boot the QEMU QCOW2 image inside qemu-system-aarch64"
+	@echo "  make run-qemu-vm         - Experimental VM; requires KERNEL_IMG for QEMU ARM64 virt"
 	@echo "  make install-sdcard      - Install MaiaLinux into mounted SD card ($(SDCARD_ROOT))"
 	@echo "  make healthcheck         - Run diagnostic check inside mounted SD card via QEMU"
 	@echo "  make chroot-shell        - Open an interactive ARM64 root shell inside $(SDCARD_ROOT)"

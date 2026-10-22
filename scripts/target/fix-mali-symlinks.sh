@@ -16,11 +16,11 @@ log_warn() { echo -e "\033[1;33m[MALI-WARN]\033[0m $1"; }
 
 backup_mali() {
     mkdir -p "$BACKUP_DIR/aarch64" "$BACKUP_DIR/armhf"
-    if [[ -f "$AARCH64_DIR/libmali-bifrost-g52-g2p0-gbm.so" ]]; then
+    if [[ -f "$AARCH64_DIR/libmali-bifrost-g52-g2p0-gbm.so" ]] && (( $(stat -Lc%s "$AARCH64_DIR/libmali-bifrost-g52-g2p0-gbm.so") > 1000000 )); then
         cp -af "$AARCH64_DIR/libmali-bifrost-g52-g2p0-gbm.so" "$BACKUP_DIR/aarch64/"
         log_info "Backed up aarch64 libmali-bifrost-g52-g2p0-gbm.so"
     fi
-    if [[ -f "$ARMHF_DIR/libmali-bifrost-g52-g2p0-gbm.so" ]]; then
+    if [[ -f "$ARMHF_DIR/libmali-bifrost-g52-g2p0-gbm.so" ]] && (( $(stat -Lc%s "$ARMHF_DIR/libmali-bifrost-g52-g2p0-gbm.so") > 1000000 )); then
         cp -af "$ARMHF_DIR/libmali-bifrost-g52-g2p0-gbm.so" "$BACKUP_DIR/armhf/"
         log_info "Backed up armhf libmali-bifrost-g52-g2p0-gbm.so"
     fi
@@ -38,7 +38,7 @@ setup_arch_mali_links() {
     # Restore blob from backup if missing or truncated
     if [[ ! -f "$libdir/$blob" ]] || [[ $(stat -c%s "$libdir/$blob" 2>/dev/null || echo 0) -lt 1000000 ]]; then
         if [[ -f "$BACKUP_DIR/$backup_sub/$blob" ]]; then
-            cp -af "$BACKUP_DIR/$backup_sub/$blob" "$libdir/$blob"
+            cp -af --remove-destination "$BACKUP_DIR/$backup_sub/$blob" "$libdir/$blob"
             chmod 755 "$libdir/$blob"
             log_info "Restored $libdir/$blob from backup"
         else

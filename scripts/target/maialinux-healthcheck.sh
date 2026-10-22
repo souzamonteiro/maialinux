@@ -27,7 +27,11 @@ echo ""
 echo "1. GPU & Library Integrity (ArkOS Mali Bifrost G52 + Mesa):"
 for arch_dir in /usr/lib/aarch64-linux-gnu /usr/lib/arm-linux-gnueabihf; do
     if [[ -f "$arch_dir/libmali-bifrost-g52-g2p0-gbm.so" ]]; then
-        pass "$arch_dir/libmali-bifrost-g52-g2p0-gbm.so present"
+        if readelf --dyn-syms "$arch_dir/libmali-bifrost-g52-g2p0-gbm.so" 2>/dev/null | grep ' eglInitialize' >/dev/null; then
+            pass "$arch_dir Mali driver exports eglInitialize"
+        else
+            fail "$arch_dir Mali driver is corrupt or replaced by a non-EGL library"
+        fi
     else
         fail "$arch_dir/libmali-bifrost-g52-g2p0-gbm.so missing"
     fi

@@ -8,6 +8,23 @@
 
 set -euo pipefail
 
+# Bubblewrap must map the desktop user's UID, not root, into the guest.
+# Mapping root drops its host DAC override and cannot traverse /media/$USER.
+if [[ "$EUID" -eq 0 ]]; then
+    if [[ "${SUDO_UID:-0}" != 0 ]]; then
+        USER_ENV=("DISPLAY=${DISPLAY:-}" "XDG_RUNTIME_DIR=/run/user/$SUDO_UID")
+        for name in XAUTHORITY QCOW2_IMG KERNEL_IMG INITRD_IMG QEMU_RAW_CACHE_DIR; do
+            if [[ -v "$name" ]]; then
+                USER_ENV+=("$name=${!name}")
+            fi
+        done
+        echo "Running the QEMU desktop as the original user (sudo is unnecessary)."
+        exec sudo -H -u "#$SUDO_UID" -- env "${USER_ENV[@]}" bash "${BASH_SOURCE[0]}" "$@"
+    fi
+    echo "Run this launcher from your normal desktop user, without sudo." >&2
+    exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [[ -f "$SCRIPT_DIR/MaiaLinux-RG353V-v1.0.0-qemu.qcow2" ]]; then
     DISTRO_DIR="$SCRIPT_DIR"
@@ -18,8 +35,8 @@ else
 fi
 
 QCOW2_IMG="${QCOW2_IMG:-$DISTRO_DIR/MaiaLinux-RG353V-v1.0.0-qemu.qcow2}"
-KERNEL_IMG="${KERNEL_IMG:-$DISTRO_DIR/Image}"
-INITRD_IMG="${INITRD_IMG:-$DISTRO_DIR/uInitrd}"
+KERNEL_IMG="${KERNEL_IMG:-}"
+INITRD_IMG="${INITRD_IMG:-}"
 MODE="${1:---gui}"
 
 if [[ "$MODE" == "--auto" ]]; then
@@ -27,16 +44,22 @@ if [[ "$MODE" == "--auto" ]]; then
 fi
 
 if [[ "$MODE" == "--gui" ]]; then
-    ROOTFS_PATH="${2:-/media/${USER:-roberto}/root}"
-    if [[ ! -d "$ROOTFS_PATH/usr/bin" ]]; then
+    ROOTFS_PATH="${2:-}"
+    if [[ -z "$ROOTFS_PATH" || ! -d "$ROOTFS_PATH/usr/bin" ]]; then
         if [[ ! -f "$QCOW2_IMG" ]]; then
             echo "Error: QEMU image not found at $QCOW2_IMG" >&2
             exit 1
         fi
-        RAW_SHM="/dev/shm/maialinux-rootfs.raw"
+        CACHE_KEY="$(stat -c '%s-%Y' "$QCOW2_IMG")"
+        RAW_SHM="${QEMU_RAW_CACHE_DIR:-/dev/shm}/maialinux-rootfs-${CACHE_KEY}.raw"
         if [[ ! -f "$RAW_SHM" ]]; then
             echo "==> Preparing QEMU rootfs in RAM ($RAW_SHM) from $QCOW2_IMG ..."
-            qemu-img convert -p -f qcow2 -O raw "$QCOW2_IMG" "$RAW_SHM"
+            if ! qemu-img convert -p -f qcow2 -O raw "$QCOW2_IMG" "$RAW_SHM.tmp"; then
+                rm -f "$RAW_SHM.tmp"
+                echo "Could not prepare the image cache. Set QEMU_RAW_CACHE_DIR to a filesystem with enough free space." >&2
+                exit 1
+            fi
+            mv "$RAW_SHM.tmp" "$RAW_SHM"
             /sbin/e2label "$RAW_SHM" MAIALINUX_QEMU 2>/dev/null || true
         fi
 
@@ -59,7 +82,7 @@ if [[ "$MODE" == "--gui" ]]; then
                 fi
                 sleep 0.4
             done
-            if [[ ! -d "$ROOTFS_PATH/usr/bin" ]]; then
+            if [[ -z "$ROOTFS_PATH" || ! -d "$ROOTFS_PATH/usr/bin" ]]; then
                 udisksctl mount -b "$LOOP_DEV" >/dev/null 2>&1 || true
                 MNT_PT="$(lsblk -no MOUNTPOINT "$LOOP_DEV" 2>/dev/null | head -n1 || true)"
                 if [[ -n "$MNT_PT" ]]; then
@@ -74,13 +97,22 @@ if [[ "$MODE" == "--gui" ]]; then
         fi
     fi
 
-    if [[ ! -d "$ROOTFS_PATH/usr/bin" ]]; then
+    if [[ -z "$ROOTFS_PATH" || ! -d "$ROOTFS_PATH/usr/bin" ]]; then
         echo "Error: Could not mount ARM64 rootfs from $QCOW2_IMG" >&2
         exit 1
     fi
 
-    exec "$REPO_ROOT/scripts/host/test-qemu-desktop.sh" "$ROOTFS_PATH" --interactive
+    TEST_SCRIPT="$REPO_ROOT/scripts/host/test-qemu-desktop.sh"
+    if [[ -f "$DISTRO_DIR/qemu-support/scripts/host/test-qemu-desktop.sh" ]]; then
+        TEST_SCRIPT="$DISTRO_DIR/qemu-support/scripts/host/test-qemu-desktop.sh"
+    fi
+    exec "$TEST_SCRIPT" "$ROOTFS_PATH" --interactive
 elif [[ "$MODE" == "--vm" ]]; then
+    if [[ -z "$KERNEL_IMG" || ! -f "$KERNEL_IMG" ]]; then
+        echo "Full-system mode requires KERNEL_IMG pointing to an ARM64 kernel with QEMU virt support." >&2
+        echo "Use --gui for the distributed desktop image; the RG353V kernel is for the handheld." >&2
+        exit 1
+    fi
     if [[ ! -f "$QCOW2_IMG" ]]; then
         echo "Error: QEMU image not found at $QCOW2_IMG" >&2
         exit 1

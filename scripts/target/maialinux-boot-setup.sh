@@ -12,15 +12,10 @@ set -uo pipefail
 RUNTIME_DIR="/etc/maialinux-runtime"
 ACTION="${1:-sync}"
 
-# 0. Draw 640x480 32bpp BGRA splash directly to /dev/fb0 when called at boot
+# Compatibility entry point for older boot hooks. Never write to the framebuffer
+# or perform installation work on the critical boot path.
 if [[ "$ACTION" == "--boot-splash" ]] || [[ "$ACTION" == "boot" ]]; then
-    if [[ -c /dev/fb0 ]] && [[ -f "${RUNTIME_DIR}/boot/splash_640x480_bgra32.raw" ]]; then
-        let fb_w=$(cat /sys/class/graphics/fb0/virtual_size 2>/dev/null | cut -d, -f1 || echo 640)
-        if [[ "${fb_w:-640}" -le 640 ]]; then
-            printf "\033[?25l" > /dev/tty1 2>/dev/null || true
-            dd if="${RUNTIME_DIR}/boot/splash_640x480_bgra32.raw" of=/dev/fb0 bs=4K status=none 2>/dev/null || true
-        fi
-    fi
+    exit 0
 fi
 
 # 1. Sync target scripts from /etc/maialinux-runtime/scripts to /usr/local/bin
@@ -32,8 +27,12 @@ if [[ -d "${RUNTIME_DIR}/scripts" ]]; then
     done
 fi
 
+if [[ -f "${RUNTIME_DIR}/emulationstation.conf" ]]; then
+    install -Dm644 "${RUNTIME_DIR}/emulationstation.conf" /etc/systemd/system/emulationstation.service.d/maialinux.conf
+fi
+
 # 2. Flash U-Boot + Kernel DRM resource.img to the Rockchip 'resource' partition (Partition 2)
-if [[ -f "${RUNTIME_DIR}/boot/resource.img" ]] && [[ ! -f "${RUNTIME_DIR}/boot/.resource_flashed_v2" ]]; then
+if [[ "$ACTION" == "--install-boot-resource" ]] && [[ -f "${RUNTIME_DIR}/boot/resource.img" ]] && [[ ! -f "${RUNTIME_DIR}/boot/.resource_flashed_v2" ]]; then
     FLASHED=0
     for dev in /dev/mmcblk1p2 /dev/mmcblk0p2 /dev/disk/by-partlabel/resource; do
         if [[ -b "$dev" ]]; then
@@ -78,28 +77,6 @@ fi
 if [[ -f "${RUNTIME_DIR}/plymouth/text.plymouth" ]]; then
     cp -f "${RUNTIME_DIR}/plymouth/text.plymouth" /usr/share/plymouth/themes/text.plymouth 2>/dev/null || true
     cp -f "${RUNTIME_DIR}/plymouth/text.plymouth" /usr/share/plymouth/themes/ubuntu-text/ubuntu-text.plymouth 2>/dev/null || true
-fi
-
-# 4. Install early systemd boot splash service so /dev/fb0 displays MaiaLinux splash at early boot
-if [[ ! -f /etc/systemd/system/maialinux-boot-splash.service ]]; then
-    cat > /etc/systemd/system/maialinux-boot-splash.service 2>/dev/null << 'EOF' || true
-[Unit]
-Description=MaiaLinux Framebuffer & Boot Splash Setup
-DefaultDependencies=no
-After=systemd-udevd.service
-Before=plymouth-start.service emulationstation.service
-
-[Service]
-Type=oneshot
-User=root
-ExecStart=/etc/maialinux-runtime/maialinux-boot-setup.sh --boot-splash
-RemainAfterExit=yes
-
-[Install]
-WantedBy=sysinit.target multi-user.target
-EOF
-    ln -sf /etc/systemd/system/maialinux-boot-splash.service /etc/systemd/system/sysinit.target.wants/maialinux-boot-splash.service 2>/dev/null || true
-    ln -sf /etc/systemd/system/maialinux-boot-splash.service /etc/systemd/system/multi-user.target.wants/maialinux-boot-splash.service 2>/dev/null || true
 fi
 
 # 5. Install wallpapers (640x480 and 1920x1080 HDMI) to /usr/share/backgrounds/maialinux and /home/ark/Pictures/Wallpapers

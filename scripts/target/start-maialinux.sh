@@ -7,7 +7,9 @@
 set -uo pipefail
 
 CUR_TTY="/dev/tty1"
-LOG_FILE="/tmp/maialinux-desktop.log"
+LOG_DIR="${HOME:-/home/ark}/.local/state/maialinux"
+mkdir -p "$LOG_DIR" || exit 1
+LOG_FILE="$LOG_DIR/desktop.log"
 X_DISPLAY=":1"
 X_VT="vt1"
 GPTOKEYB_BIN="/opt/inttools/gptokeyb"
@@ -49,7 +51,7 @@ if [[ -d /etc/maialinux-runtime/include ]] && [[ ! -f /usr/include/stdio.h ]]; t
     sudo cp -af /etc/maialinux-runtime/include/. /usr/include/ 2>/dev/null || true
 fi
 if [[ -f /etc/maialinux-runtime/lib/libwayland-egl.so.1.0.0 ]]; then
-    sudo cp -af /etc/maialinux-runtime/lib/libwayland-egl.so* /usr/lib/aarch64-linux-gnu/ 2>/dev/null || true
+    sudo cp -af --remove-destination /etc/maialinux-runtime/lib/libwayland-egl.so* /usr/lib/aarch64-linux-gnu/ 2>/dev/null || true
     sudo ldconfig 2>/dev/null || true
 fi
 if [[ -f /etc/maialinux-runtime/openbox-lxqt-rc.xml ]]; then
@@ -109,7 +111,20 @@ if ! pgrep -x "Xorg" >/dev/null 2>&1; then
     sudo rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 2>/dev/null || true
 fi
 
-startx /usr/bin/startlxqt -- "$X_DISPLAY" "$X_VT" > "$CUR_TTY" 2>&1
+# Release a remaining splash before handing the display to Xorg.
+sudo plymouth quit 2>/dev/null || true
+unset SESSION_MANAGER DBUS_SESSION_BUS_ADDRESS
+startx /usr/bin/startlxqt -- "$X_DISPLAY" "$X_VT" >> "$LOG_FILE" 2>&1
+SESSION_STATUS=$?
+if [[ "$SESSION_STATUS" -ne 0 ]]; then
+    echo "LXQt failed (status $SESSION_STATUS). See $LOG_FILE"
+fi
+# Keep the Xorg diagnostics across reboot, including a root-owned server log.
+for xlog in /var/log/Xorg.1.log "${HOME:-/home/ark}/.local/share/xorg/Xorg.1.log"; do
+    if [[ -r "$xlog" ]]; then
+        cp "$xlog" "$LOG_DIR/Xorg.1.log" || true
+    fi
+done
 
 # 6. Cleanup on session exit
 echo "Cleaning up MaiaLinux session..."
@@ -126,3 +141,5 @@ echo "Returning to ArkOS..." > "$CUR_TTY" 2>/dev/null || true
 if [[ "$RESTART_ES_AFTER" == "true" ]]; then
     sudo systemctl start emulationstation 2>/dev/null || true
 fi
+
+exit "$SESSION_STATUS"
