@@ -1,126 +1,134 @@
 # MaiaLinux for Anbernic RG353V
 
-![alt text](<images/MaiaLinux_ Play_Explore_and_Customize.png>)
+![MaiaLinux](<images/MaiaLinux_ Play_Explore_and_Customize.png>)
 
-**MaiaLinux** é uma distribuição/camada de ambiente desktop e desenvolvimento reprodutível baseada no **ArkOS (Ubuntu 19.10 Eoan ARM64)** para o console portátil **Anbernic RG353V (Rockchip RK3566)**.
+**MaiaLinux** is a reproducible Linux desktop and software development distribution layer built on top of **ArkOS (Ubuntu 19.10 Eoan ARM64)** for the **Anbernic RG353V (Rockchip RK3566)** handheld gaming console.
 
-Transforma o RG353V em um **pocket computer Linux completo** com **LXQt**, **Teclado Virtual (Touchscreen + Gamepad)**, **Geany IDE**, **QTerminal** e **toolchains completas de C/C++, Python 3, SDL2, GTK3 e Qt5**, mantendo **100% de compatibilidade com o EmulationStation, RetroArch e aceleração GPU Mali Bifrost G52**.
+It transforms the RG353V into a complete **pocket Linux computer** featuring **LXQt**, an **On-Screen Virtual Keyboard (Touchscreen + Gamepad)**, **Geany IDE**, **QTerminal**, and **full C/C++, Python 3, SDL2, GTK3, and Qt5 development toolchains**, while preserving **100% compatibility with EmulationStation, RetroArch, and Mali Bifrost G52 GPU hardware acceleration**.
 
 ---
 
-## Principais Recursos
+## Key Features
 
-- **Dual-Mode (Jogos + Desenvolvimento)**:
-  - Inicia no **EmulationStation** normalmente e permite abrir o desktop **LXQt** a qualquer momento em `Options -> Tools -> Launch-MaiaLinux-LXQt`.
-  - Inclui utilitário `Switch-Boot-Mode.sh` (no menu `Tools` ou via terminal) para alternar entre boot no EmulationStation (`es`) ou boot direto no LXQt (`desktop`).
-- **Interface Otimizada para Tela 640x480 (3.5" IPS)**:
-  - Wallpaper oficial **MaiaLinux at Neon Twilight** em `640x480` + Boot Splash U-Boot (`logo.bmp`).
-  - Painel LXQt compacto de `24px`, fontes `8pt/9pt` de alto contraste, tema escuro Catppuccin/Fusion e janelas maximizadas sem desperdício de espaço.
-- **Teclado Virtual + Touchscreen + Controles Físicos (`gptokeyb`)**:
-  - **Touchscreen**: Funciona nativamente via `libinput` (toque para clicar e digitar no teclado virtual).
-  - **Teclado Virtual (`matchbox-keyboard` / `onboard`)**: Posicionado e ancorado na base da tela (`640x160`, `y=296`) sem barra de título; pode ser exibido/ocultado pelo ícone no painel ou pelos botões **Select** / **Y** (`F12`).
-  - **Gamepad no Desktop**:
-    - **Analógico Esquerdo**: Cursor do Mouse
-    - **L1 / Botão A**: Clique Esquerdo
-    - **R1 / Botão B**: Clique Direito
-    - **Select / Botão Y**: Mostrar/Esconder Teclado Virtual (`F12`)
-    - **R3 (Clique Analógico Dir.)**: Abrir Terminal (`F10`)
-    - **D-Pad / Analógico Direito**: Setas direcionais (navegar no código/menus)
-    - **Start**: Enter | **X**: Backspace | **L3**: Esc | **L2/R2**: PageUp/PageDown
-- **Preservação Cirúrgica da GPU Mali (`libmali-bifrost-g52-g2p0-gbm.so`) + Wayland-EGL GTK3 Fix**:
-  - Resolve automaticamente o conflito histórico do ArkOS entre `libmali-rk-bifrost-g31-rxp0-wayland-gbm` e `libwayland-egl1`, mantendo `libMali.so`/`libEGL.so.1`/`libGLESv2.so.2`/`libgbm.so.1` na GPU Mali G52 para o EmulationStation e `libwayland-egl.so.1` oficial do Mesa para aplicativos GTK3 (`Geany`, `Onboard`).
-  - Restaura os cabeçalhos `/usr/include` removidos na imagem base do ArkOS para permitir compilação nativa C/C++/SDL2 no console.
-- **Ambiente de Desenvolvimento Completo Pré-Instalado**:
-  - **C/C++ & Sistema**: `gcc`, `g++`, `make`, `cmake`, `gdb`, `git`, `pkg-config`, `tmux`, `htop`, `openssh-server`
+- **Dual-Mode Architecture (Gaming + Software Development)**:
+  - Boots into **EmulationStation** by default and lets you launch the **LXQt** desktop at any time from `Options -> Tools -> Launch-MaiaLinux-LXQt`.
+  - Includes `Switch-Boot-Mode.sh` (available in the `Tools` menu or via CLI) to toggle between booting into EmulationStation (`es`) or booting directly into the LXQt Desktop (`desktop`).
+- **Tailored for Both 640×480 (3.5" IPS 4:3) and 1920×1080 (HDMI 16:9)**:
+  - **Custom Bootloader, Kernel DRM & Plymouth Splash**: Packs `logo.bmp` and `logo_kernel.bmp` into the Rockchip `resource` partition (`resource.img` via `resource_tool`) and installs a resolution-aware **Plymouth** graphical boot theme (`4:3` and `16:9` auto-detection), plus custom ArkOS launch splash images (`/roms/launchimages/loading.jpg`).
+  - **LXQt & EmulationStation Wallpapers (`4:3` & `16:9` HDMI)**: Includes **MaiaLinux at Neon Twilight** wallpapers for both the built-in `640×480` display and `1920×1080` HDMI output, with automatic HDMI detection on desktop launch and one-click switching (`Wallpaper (4:3 / HDMI)` on the desktop or `Options -> Tools -> Switch-Wallpaper-4x3-HDMI` in EmulationStation).
+  - **Compact 640×480 UI**: `24px` single bottom LXQt panel, crisp `8pt/9pt` typography, Catppuccin/Fusion dark theme, and maximized window geometry.
+- **Virtual Keyboard + Touchscreen + Physical Gamepad Controls (`gptokeyb`)**:
+  - **Touchscreen**: Native multi-touch support via `libinput` (tap to click and type on the on-screen keyboard).
+  - **Virtual Keyboard (`matchbox-keyboard` / `onboard`)**: Docked cleanly at the bottom of the screen (`640×160`, `y=296`) with no titlebar; toggle anytime via the panel icon or by pressing **Select** / **Y** (`F12`).
+  - **Desktop Gamepad Mapping**:
+    - **Left Analog Stick**: Mouse Cursor
+    - **L1 / A Button**: Left Mouse Click
+    - **R1 / B Button**: Right Mouse Click
+    - **Select / Y Button**: Show / Hide Virtual Keyboard (`F12`)
+    - **R3 (Right Stick Click)**: Open Terminal (`F10`)
+    - **D-Pad / Right Analog Stick**: Arrow Keys (navigate code and menus)
+    - **Start**: Enter | **X**: Backspace | **L3**: Esc | **L2 / R2**: PageUp / PageDown
+- **Surgical Mali G52 GPU Preservation (`libmali-bifrost-g52-g2p0-gbm.so`) + Wayland-EGL GTK3 Fix**:
+  - Automatically resolves the stock ArkOS `libmali-rk-bifrost-g31-rxp0-wayland-gbm` vs. `libwayland-egl1` package conflict, keeping `libMali.so`, `libEGL.so.1`, `libGLESv2.so.2`, and `libgbm.so.1` pointed to the Mali Bifrost G52 GBM driver for EmulationStation/RetroArch while providing Mesa's `libwayland-egl.so.1` so GTK3 applications (`Geany`, `Onboard`) run cleanly under X11.
+  - Restores `/usr/include` development headers stripped from the stock ArkOS base image so native C/C++/SDL2 compilation works out of the box on the handheld.
+- **Pre-Installed Development Stack**:
+  - **C/C++ & System**: `gcc`, `g++`, `make`, `cmake`, `gdb`, `git`, `pkg-config`, `tmux`, `htop`, `openssh-server`
   - **Python 3**: `python3`, `pip`, `venv`, `tkinter`, `pygame`, `evdev`
-  - **Bibliotecas Gráficas/Jogos**: `libsdl2-dev` (`image`, `mixer`, `ttf`, `gfx`), `libgtk-3-dev`, `qtbase5-dev`, `mesa-utils`
-  - **IDEs e Editores**: `Geany` (pré-configurado para 640x480), `FeatherPad`, `Vim`, `Nano`
-  - **Exemplos Prontos em `~/projects`**: `hello-c`, `hello-sdl2`, `hello-python-tk`, `hello-pygame`
+  - **Graphics & Game Dev Libraries**: `libsdl2-dev` (`image`, `mixer`, `ttf`, `gfx`, `net`), `libgtk-3-dev`, `qtbase5-dev`, `mesa-utils`
+  - **IDEs & Editors**: `Geany` (pre-configured for `640×480`), `FeatherPad`, `Vim`, `Nano`
+  - **Starter Projects in `~/projects`**: `hello-c`, `hello-sdl2`, `hello-python-tk`, `hello-pygame`
 
 ---
 
-## Estrutura do Projeto
+## Repository Structure
 
 ```text
 maialinux/
-├── Makefile                        # Automação: install-sdcard, healthcheck, test-qemu, build-image
-├── install-on-device.sh            # Instalador idempotente executado dentro do rootfs ARM64
-├── images/                         # Wallpapers e artes oficiais MaiaLinux (640x480 e 1920x1080)
+├── Makefile                        # Automation: install-sdcard, healthcheck, test-qemu, build-image
+├── install-on-device.sh            # Idempotent installer executed inside the ARM64 rootfs
+├── images/                         # Official MaiaLinux artwork (4:3 640x480 and 16:9 1920x1080)
 ├── config/
-│   ├── xorg/                       # Rockchip DRM modesetting (sem Glamor), Touchscreen e Xwrapper
-│   ├── lxqt/                       # Perfil LXQt + Openbox + PCManFM-Qt ajustado para 640x480
-│   ├── keyboard/                   # Script de toggle do teclado virtual (F12 / Select / Y)
-│   ├── controls/                   # Perfil gptokeyb (desktop.gptk) para o gamepad do RG353V
-│   ├── geany/                      # Configuração da IDE Geany para 640x480
-│   ├── desktop-entries/            # Atalhos da Área de Trabalho e Painel
-│   └── systemd/                    # Serviço systemd maialinux-desktop.service
+│   ├── boot/                       # Rockchip resource.img, U-Boot/Kernel BMP logos & launch splash
+│   ├── plymouth/                   # Graphical Plymouth boot theme (auto 4:3 & 16:9 HDMI)
+│   ├── wallpapers/                 # Optimized 640x480, 1280x720, and 1920x1080 PNG wallpapers
+│   ├── emulationstation/           # EmulationStation NES-Box theme customizations (4:3 & 16:9 HDMI)
+│   ├── xorg/                       # Rockchip DRM modesetting (Glamor off), Touchscreen & Xwrapper
+│   ├── lxqt/                       # LXQt + Openbox + PCManFM-Qt profile tuned for 640x480
+│   ├── keyboard/                   # Virtual keyboard toggle script (F12 / Select / Y)
+│   ├── controls/                   # gptokeyb profile (desktop.gptk) for the RG353V gamepad
+│   ├── geany/                      # Geany IDE configuration for 640x480
+│   ├── desktop-entries/            # Desktop & Application menu shortcuts
+│   └── systemd/                    # maialinux-desktop.service systemd unit
 ├── scripts/
-│   ├── host/                       # Scripts para PC Linux (chroot QEMU, SD card, imagem .img.xz, simulador 640x480)
-│   └── target/                     # Scripts instalados no RG353V (/usr/local/bin e /roms/tools)
-└── examples/                       # Projetos de exemplo (C, SDL2, Python Tkinter, Pygame)
+│   ├── host/                       # Host PC scripts (QEMU chroot, SD card, .img.xz builder, 640x480 simulator, resource_tool.c)
+│   └── target/                     # Target scripts installed on RG353V (/usr/local/bin & /roms/tools)
+└── examples/                       # Starter projects (C, SDL2, Python Tkinter, Pygame)
 ```
 
 ---
 
-## Como Instalar e Testar
+## Installation & Testing
 
-### Opção 1: Instalar Diretamente no SD Card Montado no PC (Recomendado — Rápido via QEMU User-Mode)
+### Option 1: Install Directly onto a Mounted SD Card (Recommended — Fast via QEMU User-Mode)
 
-Com o cartão SD do ArkOS montado em `/media/roberto/root` e `/media/roberto/BOOT`:
+With the ArkOS SD card mounted at `/media/roberto/root` and `/media/roberto/BOOT`:
 
 ```bash
 cd /home/roberto/projects/maialinux
 make install-sdcard SDCARD_ROOT=/media/roberto/root
 ```
 
-O script usa `qemu-aarch64-static` + `chroot` para instalar e compilar todos os pacotes na velocidade da CPU/rede do seu PC, sem precisar fazer download lento pelo Wi-Fi do console.
+This uses `qemu-aarch64-static` + `chroot` to install and compile all packages at your host PC's CPU and network speed without relying on slow handheld Wi-Fi downloads.
 
-### Opção 2: Simular o Desktop ARM64 em 640x480 no PC (Rootless via Bubblewrap + QEMU + Xephyr)
+### Option 2: Simulate the ARM64 640×480 Desktop on Your PC (Rootless via Bubblewrap + QEMU + Xephyr)
 
-Você pode testar a sessão real ARM64 do LXQt na resolução exata `640x480` do RG353V sem precisar de `sudo`:
+You can test the actual ARM64 LXQt session at the RG353V's native `640×480` resolution on your Linux PC without `sudo`:
 
 ```bash
-# Modo interativo (abre janela 640x480 com o LXQt ARM64 rodando via QEMU):
-./scripts/host/test-qemu-desktop.sh /media/roberto/root --interactive
+# Interactive mode (opens a 640x480 window running the ARM64 LXQt session via QEMU):
+make test-qemu
 
-# Modo captura de tela (salva screenshot em /tmp/maialinux-qemu-640x480.png):
+# Headless screenshot mode (renders and saves screenshot to /tmp/maialinux-qemu-640x480.png):
 ./scripts/host/test-qemu-desktop.sh /media/roberto/root --screenshot-only
 ```
 
-### Opção 3: Gerar uma Imagem `.img.xz` Reprodutível a partir do `.img` Original do ArkOS
+### Option 3: Build a Reproducible `.img.xz` Release Image from a Stock ArkOS `.img`
 
 ```bash
-make build-image BASE_IMG=/home/roberto/projects/Anbernic/RG353V/ArkOS_RG353V_v2.0_02092025.img
+make build-image BASE_IMG=/path/to/ArkOS_RG353V_v2.0.img
 ```
 
-### Opção 4: Instalar Diretamente no Console RG353V via SSH
+### Option 4: Install Directly on the RG353V Console over SSH
 
 ```bash
-scp -r /home/roberto/projects/maialinux ark@<IP_DO_RG353V>:/tmp/maialinux
-ssh ark@<IP_DO_RG353V> "sudo /tmp/maialinux/install-on-device.sh"
+scp -r /home/roberto/projects/maialinux ark@<RG353V_IP>:/tmp/maialinux
+ssh ark@<RG353V_IP> "sudo /tmp/maialinux/install-on-device.sh"
 ```
 
 ---
 
-## Uso no Console (Anbernic RG353V)
+## Usage on the Console (Anbernic RG353V)
 
-1. **Iniciar o Desktop LXQt**:
-   - No EmulationStation, acesse **Options** -> **Tools** -> **Launch-MaiaLinux-LXQt**.
-2. **Alternar Modo de Boot (EmulationStation vs. Desktop Direto)**:
-   - Em **Options** -> **Tools** -> **Switch-Boot-Mode**, ou no terminal:
+1. **Launch the LXQt Desktop**:
+   - In EmulationStation, navigate to **Options** -> **Tools** -> **Launch-MaiaLinux-LXQt**.
+2. **Switch Boot Mode (EmulationStation vs. Direct Desktop Boot)**:
+   - Navigate to **Options** -> **Tools** -> **Switch-Boot-Mode**, or run in a terminal:
      ```bash
-     sudo switch-boot-mode.sh desktop   # Inicia direto no LXQt ao ligar o console
-     sudo switch-boot-mode.sh es        # Inicia no EmulationStation (Dual-Mode)
+     sudo switch-boot-mode.sh desktop   # Boot directly into LXQt on power-on
+     sudo switch-boot-mode.sh es        # Boot into EmulationStation (Dual-Mode)
      ```
-3. **Voltar para os Jogos (EmulationStation)**:
-   - Clique duas vezes no ícone **Voltar aos Jogos (ES)** na área de trabalho, ou no menu `Maia -> Leave -> Logout`.
-4. **Verificar Saúde do Sistema**:
+3. **Switch Wallpapers Between 4:3 (640×480) and 16:9 (1920×1080 HDMI)**:
+   - Automatic detection runs on every LXQt startup (`maialinux-wallpaper.sh auto`).
+   - To toggle manually, double-click **Wallpaper (4:3 / HDMI)** on the LXQt desktop, select **Options** -> **Tools** -> **Switch-Wallpaper-4x3-HDMI** in EmulationStation, or change **Theme Color** in EmulationStation (`Start -> UI Settings -> Theme Configuration -> Theme Color`) between `MaiaLinux Neon (640x480 4:3)` and `MaiaLinux Neon (1920x1080 HDMI)`.
+4. **Return to Gaming (EmulationStation)**:
+   - Double-click **Return to Gaming (ES)** on the desktop, or select `Maia -> Leave -> Logout` from the bottom-left panel menu.
+5. **Run the System Health Check**:
    ```bash
    maialinux-healthcheck.sh
    ```
 
 ---
 
-## Licença
+## License
 
-Distribuído sob a licença MIT. Veja `LICENSE` para mais detalhes.
+Distributed under the MIT License. See [`LICENSE`](LICENSE) for details.
