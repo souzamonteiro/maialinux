@@ -8,8 +8,31 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-ROOTFS="${1:-/media/${USER:-roberto}/root}"
-BOOTFS="${2:-/media/${USER:-roberto}/BOOT}"
+ROOTFS="${1:-}"
+BOOTFS="${2:-}"
+
+# Auto-detect physical SD card mountpoints (/dev/mmcblk* or /dev/sd*) even if a loop device is mounted
+if [[ -z "$ROOTFS" ]]; then
+    SD_ROOT_MNT="$(lsblk -nr -o NAME,FSTYPE,MOUNTPOINT | awk '$1 ~ /^(mmcblk|sd)/ && $2 == "ext4" && $3 != "/" && $3 != "" {print $3; exit}')"
+    if [[ -n "$SD_ROOT_MNT" ]]; then
+        ROOTFS="$SD_ROOT_MNT"
+    else
+        ROOTFS="/media/${USER:-roberto}/root"
+    fi
+fi
+if [[ -z "$BOOTFS" ]]; then
+    SD_BOOT_MNT="$(lsblk -nr -o NAME,FSTYPE,MOUNTPOINT | awk '$1 ~ /^(mmcblk|sd)/ && $2 == "vfat" && $3 != "/boot/efi" && $3 != "" {print $3; exit}')"
+    if [[ -n "$SD_BOOT_MNT" ]]; then
+        BOOTFS="$SD_BOOT_MNT"
+    else
+        BOOTFS="/media/${USER:-roberto}/BOOT"
+    fi
+fi
+
+if [[ "$(df -P "$ROOTFS" 2>/dev/null | awk 'NR==2 {print $1}')" == /dev/loop* ]]; then
+    echo "Error: $ROOTFS is currently a QEMU loop mount, not the physical SD card. Please close QEMU and insert the physical SD card." >&2
+    exit 1
+fi
 
 if [[ ! -d "$ROOTFS/home/ark" ]]; then
     echo "Error: SD card rootfs not found at $ROOTFS (please insert the physical SD card first)." >&2

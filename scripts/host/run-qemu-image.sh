@@ -37,6 +37,7 @@ if [[ "$MODE" == "--gui" ]]; then
         if [[ ! -f "$RAW_SHM" ]]; then
             echo "==> Preparing QEMU rootfs in RAM ($RAW_SHM) from $QCOW2_IMG ..."
             qemu-img convert -p -f qcow2 -O raw "$QCOW2_IMG" "$RAW_SHM"
+            /sbin/e2label "$RAW_SHM" MAIALINUX_QEMU 2>/dev/null || true
         fi
 
         # Check if already attached to a loop device
