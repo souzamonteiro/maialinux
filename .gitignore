@@ -5,6 +5,9 @@ build/
 !config/boot/resource.img
 *.img.xz
 *.img.gz
+*.raw
+*.bin
+*.tar
 *.tar.xz
 *.tar.gz
 *.qcow2
@@ -21,3 +24,9 @@ build/
 backups/
 __pycache__/
 *.pyc
+
+# Reproducible-build local caches and staged vendor binaries
+.cache/
+vendor/mali/
+vendor/runtime/lib/
+vendor/vendor-libs-manifest.txt

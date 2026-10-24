@@ -8,6 +8,8 @@ It turns the RG353V into a complete **Dual-Mode Handheld Gaming Console + Linux 
 
 ## 📦 Release Artifacts (`distro/`)
 
+The compiled MaiaLinux distribution, ready to install on the RG353V device and to run in QEMU, is also available for download from the official MaiaLinux project site: https://apps.maiaplatform.org/maialinux
+
 | File | Description | Target |
 | :--- | :--- | :--- |
 | **`MaiaLinux-RG353V-v1.0.0-sdcard.img.xz`** | Flashable GPT SD Card image (compressed with `xz`). 16 GiB root filesystem; requires a microSD card of at least 32 GB. | **Anbernic RG353V (TF1/INT slot)** |

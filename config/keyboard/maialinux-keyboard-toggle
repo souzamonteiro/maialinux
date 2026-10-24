@@ -4,7 +4,31 @@
 
 set -u
 
-export DISPLAY="${DISPLAY:-:1}"
+# Ignore repeated triggers that happen almost simultaneously
+# (e.g. Select+Y both mapped to F12).
+LOCK_FILE="/tmp/maialinux-keyboard-toggle.last"
+now_ms="$(date +%s%3N 2>/dev/null || echo 0)"
+if [[ -f "$LOCK_FILE" ]]; then
+    last_ms="$(cat "$LOCK_FILE" 2>/dev/null || echo 0)"
+    if [[ "$now_ms" =~ ^[0-9]+$ ]] && [[ "$last_ms" =~ ^[0-9]+$ ]]; then
+        if (( now_ms - last_ms < 450 )); then
+            exit 0
+        fi
+    fi
+fi
+echo "$now_ms" > "$LOCK_FILE" 2>/dev/null || true
+
+if [[ -z "${DISPLAY:-}" ]]; then
+    if [[ -S /tmp/.X11-unix/X1 ]]; then
+        export DISPLAY=":1"
+    elif [[ -S /tmp/.X11-unix/X0 ]]; then
+        export DISPLAY=":0"
+    else
+        export DISPLAY=":1"
+    fi
+fi
+
+export XAUTHORITY="${XAUTHORITY:-/home/ark/.Xauthority}"
 
 if pgrep -x "matchbox-keyboa" >/dev/null 2>&1 || pgrep -f "matchbox-keyboard" >/dev/null 2>&1; then
     pkill -f "matchbox-keyboard" >/dev/null 2>&1 || true

@@ -4,7 +4,7 @@ Description=Text mode theme based on ubuntu-logo theme
 ModuleName=ubuntu-text
 
 [ubuntu-text]
-title=MaiaLinux 1.0 (ArkOS 2.0)
+title=MaiaLinux 1.0
 black=0x0d0a1f
 white=0xcdd6f4
 brown=0x89b4fa

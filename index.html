@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MaiaLinux | Pocket Linux for Anbernic Handhelds</title>
+    <meta
+      name="description"
+      content="MaiaLinux is a modern Linux distribution for Anbernic RG353V and future handheld targets, built to blend gaming, development, and custom hardware support."
+    />
+    <style>
+      :root {
+        --bg: #07111f;
+        --bg-soft: #0d1b2a;
+        --panel: rgba(13, 27, 42, 0.8);
+        --panel-strong: #101f34;
+        --border: rgba(148, 163, 184, 0.2);
+        --text: #e5eefb;
+        --muted: #9fb3ca;
+        --primary: #7dd3fc;
+        --primary-strong: #38bdf8;
+        --accent: #a78bfa;
+        --success: #34d399;
+        --warning: #fbbf24;
+        --shadow: 0 20px 50px rgba(8, 15, 25, 0.45);
+      }
+
+      * { box-sizing: border-box; }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        font-family: Inter, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background:
+          radial-gradient(circle at top left, rgba(56, 189, 248, 0.14), transparent 28%),
+          radial-gradient(circle at top right, rgba(167, 139, 250, 0.18), transparent 26%),
+          linear-gradient(180deg, #040b14 0%, #091522 30%, #07111f 100%);
+        color: var(--text);
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .container {
+        width: min(1180px, calc(100% - 32px));
+        margin: 0 auto;
+      }
+
+      header {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        backdrop-filter: blur(16px);
+        background: rgba(7, 17, 31, 0.7);
+        border-bottom: 1px solid var(--border);
+      }
+
+      .nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 72px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+      }
+
+      .brand-mark {
+        width: 38px;
+        height: 38px;
+        display: grid;
+        place-items: center;
+        border-radius: 12px;
+        background: linear-gradient(135deg, var(--primary), var(--accent));
+        box-shadow: 0 10px 20px rgba(125, 211, 252, 0.3);
+        color: #031420;
+        font-weight: 900;
+      }
+
+      .nav-links {
+        display: flex;
+        align-items: center;
+        gap: 24px;
+        color: var(--muted);
+        font-size: 0.96rem;
+      }
+
+      .nav-links a:hover { color: var(--text); }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 48px;
+        padding: 0 18px;
+        border-radius: 12px;
+        border: 1px solid rgba(125, 211, 252, 0.35);
+        font-weight: 700;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .button:hover { transform: translateY(-1px); }
+
+      .button.primary {
+        background: linear-gradient(135deg, var(--primary), var(--primary-strong));
+        color: #04151f;
+        box-shadow: 0 12px 24px rgba(56, 189, 248, 0.28);
+      }
+
+      .button.secondary {
+        background: rgba(148, 163, 184, 0.08);
+        border-color: rgba(148, 163, 184, 0.3);
+        color: var(--text);
+      }
+
+      .hero {
+        padding: 64px 0 32px;
+      }
+
+      .hero-grid {
+        display: grid;
+        grid-template-columns: 1.15fr 0.85fr;
+        gap: 32px;
+        align-items: center;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: rgba(125, 211, 252, 0.08);
+        border: 1px solid rgba(125, 211, 252, 0.2);
+        color: var(--primary);
+        font-size: 0.8rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 18px 0 16px;
+        font-size: clamp(2.8rem, 5vw, 5rem);
+        line-height: 0.96;
+        letter-spacing: -0.055em;
+      }
+
+      .headline-accent {
+        background: linear-gradient(135deg, var(--primary), #c4b5fd);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+
+      .lead {
+        max-width: 650px;
+        font-size: 1.08rem;
+        line-height: 1.7;
+        color: var(--muted);
+      }
+
+      .cta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        margin-top: 28px;
+      }
+
+      .hero-pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 22px;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 8px 12px;
+        border-radius: 999px;
+        font-size: 0.82rem;
+        color: var(--muted);
+        background: rgba(148, 163, 184, 0.06);
+        border: 1px solid var(--border);
+      }
+
+      .hero-visual {
+        position: relative;
+      }
+
+      .device-card {
+        background: linear-gradient(180deg, rgba(16, 31, 52, 0.96), rgba(9, 17, 31, 0.95));
+        border: 1px solid var(--border);
+        border-radius: 28px;
+        overflow: hidden;
+        box-shadow: var(--shadow);
+      }
+
+      .device-card img {
+        display: block;
+        width: 100%;
+        height: auto;
+        aspect-ratio: 1.2;
+        object-fit: cover;
+      }
+
+      .status-badge {
+        position: absolute;
+        right: 18px;
+        bottom: 18px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        border-radius: 999px;
+        background: rgba(5, 19, 30, 0.76);
+        border: 1px solid rgba(52, 211, 153, 0.35);
+        color: #d9fff2;
+        font-weight: 600;
+        box-shadow: var(--shadow);
+      }
+
+      .dot {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--success);
+        box-shadow: 0 0 14px rgba(52, 211, 153, 0.8);
+      }
+
+      section {
+        padding: 30px 0;
+      }
+
+      .section-head {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 20px;
+      }
+
+      .section-head h2 {
+        margin: 0;
+        font-size: clamp(1.8rem, 3vw, 2.5rem);
+        letter-spacing: -0.05em;
+      }
+
+      .section-head p {
+        margin: 0;
+        color: var(--muted);
+      }
+
+      .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 20px;
+      }
+
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 22px 20px;
+        box-shadow: 0 12px 24px rgba(2, 8, 14, 0.18);
+      }
+
+      .icon {
+        width: 44px;
+        height: 44px;
+        display: grid;
+        place-items: center;
+        border-radius: 12px;
+        background: rgba(125, 211, 252, 0.12);
+        border: 1px solid rgba(125, 211, 252, 0.25);
+        margin-bottom: 16px;
+        font-size: 1.25rem;
+      }
+
+      .card h3 {
+        margin: 0 0 8px;
+        font-size: 1.1rem;
+      }
+
+      .card p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.7;
+      }
+
+      .two-col {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+      }
+
+      .list-panel {
+        background: rgba(15, 24, 36, 0.8);
+        border: 1px solid var(--border);
+        border-radius: 22px;
+        padding: 24px 22px;
+      }
+
+      .list-panel h3 {
+        margin-top: 0;
+        margin-bottom: 14px;
+        font-size: 1.25rem;
+      }
+
+      ul.check {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        gap: 14px;
+      }
+
+      ul.check li {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      ul.check li::before {
+        content: "✓";
+        color: var(--success);
+        font-weight: 900;
+      }
+
+      .timeline {
+        display: grid;
+        gap: 18px;
+        margin-top: 18px;
+      }
+
+      .milestone {
+        display: grid;
+        grid-template-columns: 90px 1fr;
+        gap: 16px;
+        background: rgba(13, 27, 42, 0.72);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 18px 18px;
+      }
+
+      .phase {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 62px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, rgba(125, 211, 252, 0.18), rgba(167, 139, 250, 0.18));
+        color: var(--primary);
+        font-weight: 800;
+        letter-spacing: 0.04em;
+      }
+
+      .milestone h4 {
+        margin: 0 0 6px;
+        font-size: 1.05rem;
+      }
+
+      .milestone p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.7;
+      }
+
+      .download-box {
+        display: grid;
+        grid-template-columns: 1.4fr 0.6fr;
+        gap: 20px;
+        background: linear-gradient(135deg, rgba(125, 211, 252, 0.08), rgba(167, 139, 250, 0.08));
+        border: 1px solid rgba(125, 211, 252, 0.18);
+        border-radius: 24px;
+        padding: 22px;
+      }
+
+      .download-box h3 {
+        margin: 0 0 10px;
+        font-size: clamp(1.5rem, 2vw, 2rem);
+      }
+
+      .download-box p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.7;
+      }
+
+      .download-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        justify-content: center;
+      }
+
+      .button.large {
+        width: 100%;
+        height: 52px;
+      }
+
+      footer {
+        padding: 30px 0 60px;
+        color: var(--muted);
+        border-top: 1px solid var(--border);
+        margin-top: 30px;
+      }
+
+      @media (max-width: 920px) {
+        .hero-grid,
+        .feature-grid,
+        .two-col,
+        .download-box {
+          grid-template-columns: 1fr;
+        }
+
+        .nav-links {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="container nav">
+        <div class="brand" aria-label="MaiaLinux brand">
+          <div class="brand-mark">M</div>
+          <span>MAIALINUX</span>
+        </div>
+
+        <nav class="nav-links" aria-label="Main navigation">
+          <a href="#features">Features</a>
+          <a href="#roadmap">Roadmap</a>
+          <a href="#downloads">Downloads</a>
+          <a href="#about">About</a>
+        </nav>
+
+        <a class="button secondary" href="https://apps.maiaplatform.org/maialinux" target="_blank" rel="noreferrer">Project Site</a>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="container hero-grid">
+          <div>
+            <div class="eyebrow">Anbernic • Linux • Customization</div>
+            <h1>
+              Pocket Linux for<br />
+              <span class="headline-accent">Handheld Gaming</span>
+            </h1>
+            <p class="lead">
+              MaiaLinux turns the Anbernic RG353V into a flexible Linux handheld for gaming,
+              development, experimentation, and customization. We are building a modern, reproducible,
+              community-driven experience that preserves the spirit of ArkOS while preparing the next step
+              toward Debian-based systems and broader device support.
+            </p>
+
+            <div class="cta-row">
+              <a class="button primary" href="https://apps.maiaplatform.org/maialinux" target="_blank" rel="noreferrer">Download MaiaLinux</a>
+              <a class="button secondary" href="#roadmap">See the Roadmap</a>
+            </div>
+
+            <div class="hero-pills" aria-label="Core project traits">
+              <span class="pill">RG353V support</span>
+              <span class="pill">LXQt desktop</span>
+              <span class="pill">Development tools</span>
+              <span class="pill">QEMU ready</span>
+            </div>
+          </div>
+
+          <div class="hero-visual" aria-label="MaiaLinux project visual">
+            <div class="device-card">
+              <img src="images/MaiaLinux_ Play_Explore_and_Customize.png" alt="MaiaLinux project artwork" />
+            </div>
+            <div class="status-badge"><span class="dot"></span> Project active</div>
+          </div>
+        </div>
+      </section>
+
+      <section id="features">
+        <div class="container">
+          <div class="section-head">
+            <h2>Built for real handheld use</h2>
+            <p>Focused on Linux performance, portability and developer ergonomics.</p>
+          </div>
+
+          <div class="feature-grid">
+            <article class="card">
+              <div class="icon">🎮</div>
+              <h3>Dual-mode experience</h3>
+              <p>Launch EmulationStation or a full LXQt desktop, balancing retro gaming with a capable Linux workflow.</p>
+            </article>
+
+            <article class="card">
+              <div class="icon">💻</div>
+              <h3>Developer-ready</h3>
+              <p>Compiler toolchains, Python, SDL2, GTK, Qt, and a desktop environment tailored for on-device coding.</p>
+            </article>
+
+            <article class="card">
+              <div class="icon">⚙️</div>
+              <h3>Customizable</h3>
+              <p>Kernel tuning, scripts, boot customization, splash themes, and system-level adjustments for a cleaner handheld stack.</p>
+            </article>
+
+            <article class="card">
+              <div class="icon">🧪</div>
+              <h3>QEMU validation</h3>
+              <p>Prebuilt and testable images can be executed in QEMU for local validation before flashing to hardware.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="about">
+        <div class="container two-col">
+          <div class="list-panel">
+            <h3>Why MaiaLinux</h3>
+            <ul class="check">
+              <li>Built around the RG353V platform and its Rockchip ecosystem.</li>
+              <li>Reproducible build flow with release artifacts and checksum verification.</li>
+              <li>Designed to preserve the gaming experience while expanding Linux usability.</li>
+              <li>Prepared for future portability across additional Anbernic handheld targets.</li>
+            </ul>
+          </div>
+
+          <div class="list-panel">
+            <h3>Current project direction</h3>
+            <ul class="check">
+              <li>Support the proven RG353V base and keep the kernel stack stable.</li>
+              <li>Expand to Anbernic RG DS family support in the next product phase.</li>
+              <li>Explore a Debian-based path, aligning with the broader dArkOS transition.</li>
+              <li>Move toward a cleaner Debian foundation without losing device-specific compatibility.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="roadmap">
+        <div class="container">
+          <div class="section-head">
+            <h2>Roadmap</h2>
+            <p>From stable handheld Linux to broader Debian-native portability.</p>
+          </div>
+
+          <div class="timeline">
+            <div class="milestone">
+              <div class="phase">NOW</div>
+              <div>
+                <h4>RG353V stabilization</h4>
+                <p>Keep the current release stable, reproducible, and validated for real hardware and QEMU-based testing.</p>
+              </div>
+            </div>
+
+            <div class="milestone">
+              <div class="phase">NEXT</div>
+              <div>
+                <h4>RG DS support</h4>
+                <p>Adapt the board support layer, kernel configuration, boot scripts, and display handling for the Anbernic RG DS family.</p>
+              </div>
+            </div>
+
+            <div class="milestone">
+              <div class="phase">FUTURE</div>
+              <div>
+                <h4>Debian / dArkOS alignment</h4>
+                <p>Evaluate a migration away from the ArkOS-centric base toward a Debian-native foundation, following the wider dArkOS evolution in the ecosystem.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="downloads">
+        <div class="container">
+          <div class="download-box">
+            <div>
+              <h3>Ready-to-use builds</h3>
+              <p>
+                The compiled MaiaLinux distribution, ready to be installed on the device and executed in QEMU,
+                can be downloaded from the official project site. We also provide source-oriented reproducible builds for advanced customization.
+              </p>
+            </div>
+
+            <div class="download-actions">
+              <a class="button primary large" href="https://apps.maiaplatform.org/maialinux" target="_blank" rel="noreferrer">Download from project site</a>
+              <a class="button secondary large" href="https://github.com" target="_blank" rel="noreferrer">GitHub</a>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="container">
+        MaiaLinux — a portable Linux desktop layer for Anbernic handhelds, now and for the next generation of device support.
+      </div>
+    </footer>
+  </body>
+</html>

@@ -20,15 +20,21 @@ import tarfile
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 DISTRO_DIR = os.path.join(REPO_ROOT, "distro")
+DEFAULT_BASE_IMG = os.path.join(REPO_ROOT, ".cache", "upstream", "ArkOS_RG353V_v2.0_02092025.img")
 BASE_IMG = os.environ.get(
     "BASE_IMG",
-    "/home/roberto/projects/Anbernic/RG353V/ArkOS_RG353V_v2.0_02092025.img",
+    DEFAULT_BASE_IMG,
 )
 SDCARD_ROOT = os.environ.get("SDCARD_ROOT", "/media/roberto/root")
 SDCARD_BOOT = os.environ.get("SDCARD_BOOT", "/media/roberto/BOOT")
 STAGING_DIR = os.environ.get(
-    "STAGING_DIR", "/media/roberto/root/etc/maialinux-runtime/.tmp-maialinux-build"
+    "STAGING_DIR", os.path.join(REPO_ROOT, ".cache", "distro-build")
 )
+VENDOR_MALI_AARCH64 = os.path.join(REPO_ROOT, "vendor", "mali", "aarch64", "libmali-bifrost-g52-g2p0-gbm.so")
+VENDOR_WAYLAND_EGL = os.path.join(REPO_ROOT, "vendor", "runtime", "lib", "libwayland-egl.so.1.0.0")
+KERNEL_BUNDLE_DIR = os.environ.get("KERNEL_BUNDLE_DIR", os.path.join(DISTRO_DIR, "kernel-rg353v-4.19.172"))
+KERNEL_IMAGE = os.environ.get("KERNEL_IMAGE", os.path.join(KERNEL_BUNDLE_DIR, "Image"))
+KERNEL_DTB = os.environ.get("KERNEL_DTB", os.path.join(KERNEL_BUNDLE_DIR, "rk3566.dtb"))
 
 VERSION = "v1.0.0"
 SDCARD_XZ_NAME = f"MaiaLinux-RG353V-{VERSION}-sdcard.img.xz"
@@ -37,6 +43,13 @@ QEMU_QCOW2_NAME = f"MaiaLinux-RG353V-{VERSION}-qemu.qcow2"
 
 def log(msg: str) -> None:
     print(f"[{time.strftime('%H:%M:%S')}] {msg}", flush=True)
+
+
+def first_existing_file(paths):
+    for path in paths:
+        if path and os.path.isfile(path):
+            return path
+    return None
 
 
 def ensure_mtools() -> str:
@@ -102,10 +115,22 @@ def repository_payload():
     return list(directories.values()), files
 
 
+def copy_fat_file_if_present(mcopy: str, part3_img: str, src: str, dst: str) -> bool:
+    result = subprocess.run([mcopy, "-o", "-i", part3_img, src, dst], stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True, check=False)
+    if result.returncode == 0:
+        return True
+    if "File not found" in result.stderr or "not found" in result.stderr.lower():
+        log(f"Skipping missing FAT payload {src!r} on boot image ({dst})")
+        return False
+    raise RuntimeError(f"Failed to copy {src} -> {dst}: {result.stderr.strip() or result.returncode}")
+
+
 def build_part3_boot(part3_img: str) -> None:
     log("Building Partition 3 (BOOT FAT32) with MaiaLinux logos and firstboot hook...")
     extract_range(BASE_IMG, part3_img, 32768, 204800)
+
     mcopy = ensure_mtools()
+    mdel = os.path.join(os.path.dirname(mcopy), "mdel")
     mmd = os.path.join(os.path.dirname(mcopy), "mmd")
 
     firstboot = os.path.join(STAGING_DIR, "firstboot.sh")
@@ -118,10 +143,20 @@ def build_part3_boot(part3_img: str) -> None:
         (os.path.join(REPO_ROOT, "config/boot/logo.bmp"), "::/splash/logo_640x480.bmp"),
         (os.path.join(REPO_ROOT, "config/boot/logo_1920x1080.bmp"), "::/splash/logo_1920x1080.bmp"),
     ]
+    for _, dst in boot_files:
+        subprocess.run([mdel, "-i", part3_img, dst], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
     subprocess.run([mmd, "-D", "s", "-i", part3_img, "::/splash"], stderr=subprocess.DEVNULL)
     for src, dst in boot_files:
         if os.path.isfile(src):
             subprocess.run([mcopy, "-o", "-i", part3_img, src, dst], check=True)
+
+    # Prefer reproducible kernel bundle artifacts when available.
+    for target in ("::/Image", "::/rk3566.dtb", "::/uInitrd"):
+        subprocess.run([mdel, "-i", part3_img, target], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+    if os.path.isfile(KERNEL_IMAGE):
+        subprocess.run([mcopy, "-o", "-i", part3_img, KERNEL_IMAGE, "::/Image"], check=True)
+    if os.path.isfile(KERNEL_DTB):
+        subprocess.run([mcopy, "-o", "-i", part3_img, KERNEL_DTB, "::/rk3566.dtb"], check=True)
 
 
 def build_part4_rootfs(part4_img: str, extra_sectors: int) -> int:
@@ -250,7 +285,6 @@ def build_part4_rootfs(part4_img: str, extra_sectors: int) -> int:
     for fn in os.listdir(os.path.join(REPO_ROOT, "config/desktop-entries")):
         src = os.path.join(REPO_ROOT, "config/desktop-entries", fn)
         if os.path.isfile(src):
-            files_to_write.append((src, f"/home/ark/Desktop/{fn}", 1002, 1002, 0o100755))
             files_to_write.append((src, f"/usr/local/share/applications/{fn}", 0, 0, 0o100755))
 
     payload_dirs, payload_files = repository_payload()
@@ -274,14 +308,29 @@ def build_part4_rootfs(part4_img: str, extra_sectors: int) -> int:
     symlinks_to_create = [item for item in symlinks_to_create if not item[0].endswith(".target.wants/maialinux-boot-splash.service")]
 
     # Never distribute the damaged Mali blob or Wayland aliases into libMali.
-    mali_backup = os.path.join(SDCARD_ROOT, "opt/maialinux/backup/mali/aarch64/libmali-bifrost-g52-g2p0-gbm.so")
-    if not os.path.isfile(mali_backup) or os.path.getsize(mali_backup) < 1000000:
-        raise RuntimeError("A valid backed-up Mali driver is required for the hardware image.")
+    mali_backup = first_existing_file([
+        os.path.join(SDCARD_ROOT, "opt/maialinux/backup/mali/aarch64/libmali-bifrost-g52-g2p0-gbm.so"),
+        os.path.join(SDCARD_ROOT, "usr/lib/aarch64-linux-gnu/libmali-bifrost-g52-g2p0-gbm.so"),
+        VENDOR_MALI_AARCH64,
+    ])
+    if mali_backup is None or os.path.getsize(mali_backup) < 1000000:
+        raise RuntimeError(
+            "A valid Mali blob is required. Run scripts/host/stage-vendor-libs.sh or provide it in the mounted rootfs."
+        )
     files_to_write.append((mali_backup, "/usr/lib/aarch64-linux-gnu/libmali-bifrost-g52-g2p0-gbm.so", 0, 0, 0o100755))
     wayland_dir = "/usr/lib/aarch64-linux-gnu/"
     wayland_names = ("libwayland-egl.so", "libwayland-egl.so.1", "libwayland-egl.so.1.0.0")
     symlinks_to_create = [item for item in symlinks_to_create if item[0] not in [wayland_dir + name for name in wayland_names]]
-    files_to_write.append((os.path.join(SDCARD_ROOT, "etc/maialinux-runtime/lib/libwayland-egl.so.1.0.0"), wayland_dir + "libwayland-egl.so.1.0.0", 0, 0, 0o100644))
+    wayland_egl_src = first_existing_file([
+        os.path.join(SDCARD_ROOT, "etc/maialinux-runtime/lib/libwayland-egl.so.1.0.0"),
+        os.path.join(SDCARD_ROOT, "usr/lib/aarch64-linux-gnu/libwayland-egl.so.1.0.0"),
+        VENDOR_WAYLAND_EGL,
+    ])
+    if wayland_egl_src is None:
+        raise RuntimeError(
+            "libwayland-egl.so.1.0.0 is required. Run scripts/host/stage-vendor-libs.sh or provide it in the mounted rootfs."
+        )
+    files_to_write.append((wayland_egl_src, wayland_dir + "libwayland-egl.so.1.0.0", 0, 0, 0o100644))
     symlinks_to_create.extend([(wayland_dir + name, "libwayland-egl.so.1.0.0", 0, 0) for name in wayland_names[:2]])
 
     log(
@@ -377,8 +426,13 @@ def main() -> int:
     qemu_sha = write_sha256(qemu_qcow2_path)
     log(f"QEMU image ready ({os.path.getsize(qemu_qcow2_path) / (1024**3):.2f} GiB, SHA256: {qemu_sha[:16]}...)")
 
-    shutil.copy2(os.path.join(SDCARD_BOOT, "Image"), os.path.join(DISTRO_DIR, "Image"))
-    shutil.copy2(os.path.join(SDCARD_BOOT, "uInitrd"), os.path.join(DISTRO_DIR, "uInitrd"))
+    mcopy = ensure_mtools()
+    for output_path in [os.path.join(DISTRO_DIR, "Image"), os.path.join(DISTRO_DIR, "uInitrd")]:
+        if os.path.exists(output_path):
+            os.remove(output_path)
+    if not copy_fat_file_if_present(mcopy, part3_img, "::/Image", os.path.join(DISTRO_DIR, "Image")):
+        raise RuntimeError("Kernel bundle does not contain /Image; cannot assemble distro boot payload.")
+    copy_fat_file_if_present(mcopy, part3_img, "::/uInitrd", os.path.join(DISTRO_DIR, "uInitrd"))
 
     # 2. Build exact GPT header & footer using a 0-disk-usage sparse file in /tmp
     part5_start = 237568 + part4_sectors + 401

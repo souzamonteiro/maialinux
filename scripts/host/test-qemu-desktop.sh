@@ -3,10 +3,10 @@
 # Runs and tests the ARM64 MaiaLinux LXQt desktop environment at the exact RG353V
 # resolution (640x480) on the host PC using Bubblewrap (bwrap) + QEMU user-mode
 # (qemu-aarch64-static) + Xephyr.
-# Works rootlessly (no sudo required!) directly against a mounted SD card (/media/roberto/root).
+# Works rootlessly (no sudo required!) directly against a mounted SD card in the current user's media directory.
 #
 # Usage:
-#   ./scripts/host/test-qemu-desktop.sh [/media/roberto/root] [--screenshot-only|--interactive]
+#   ./scripts/host/test-qemu-desktop.sh [rootfs_mount] [--screenshot-only|--interactive]
 
 set -euo pipefail
 
@@ -18,6 +18,11 @@ fi
 for tool in Xephyr xdpyinfo bwrap; do
     command -v "$tool" >/dev/null || { echo "Missing prerequisite: $tool" >&2; exit 1; }
 done
+QEMU_BIN="${QEMU_BIN:-$(command -v qemu-aarch64-static || true)}"
+if [[ -z "$QEMU_BIN" ]]; then
+    echo "Error: qemu-aarch64-static not found on host. Install 'qemu-user-static'." >&2
+    exit 1
+fi
 # Check the actual UID mapping before opening a graphical window.
 if ! USERNS_ERROR=$(bwrap --unshare-user --uid 1002 --gid 1002 --ro-bind / / -- /usr/bin/true 2>&1); then
     echo "$USERNS_ERROR" >&2
@@ -26,7 +31,15 @@ if ! USERNS_ERROR=$(bwrap --unshare-user --uid 1002 --gid 1002 --ro-bind / / -- 
     exit 1
 fi
 
-ROOTFS="${1:-/media/roberto/root}"
+CURRENT_USER="${USER:-$(id -un 2>/dev/null || echo root)}"
+MEDIA_BASE="${MEDIA_BASE:-}"
+if [[ -z "$MEDIA_BASE" ]]; then
+    for candidate in "/media/$CURRENT_USER" "/run/media/$CURRENT_USER" "/media/${SUDO_USER:-$CURRENT_USER}" "/run/media/${SUDO_USER:-$CURRENT_USER}"; do
+        [[ -d "$candidate" ]] && { MEDIA_BASE="$candidate"; break; }
+done
+    [[ -n "$MEDIA_BASE" ]] || MEDIA_BASE="/media/$CURRENT_USER"
+fi
+ROOTFS="${1:-$MEDIA_BASE/root}"
 MODE="${2:---interactive}"
 SCREENSHOT_OUT="${SCREENSHOT_OUT:-/tmp/maialinux-qemu-640x480.png}"
 TEST_DISPLAY=":42"
@@ -116,9 +129,10 @@ bwrap \
     --unshare-user --uid 1002 --gid 1002 \
     --die-with-parent --unshare-pid \
     --ro-bind "$ROOTFS" / \
+    --bind /tmp /tmp \
+    --ro-bind "$QEMU_BIN" /tmp/qemu-aarch64-static \
     --dev /dev \
     --proc /proc \
-    --bind /tmp /tmp \
     --bind "$SIM_HOME" /home/ark \
     --setenv DISPLAY "$TEST_DISPLAY" \
     --setenv HOME "/home/ark" \
@@ -136,15 +150,27 @@ bwrap \
     --setenv GDK_BACKEND "x11" \
     --setenv LD_LIBRARY_PATH "/etc/maialinux-runtime/lib:/usr/lib/aarch64-linux-gnu:/lib/aarch64-linux-gnu" \
     --setenv C_INCLUDE_PATH "/etc/maialinux-runtime/include:/etc/maialinux-runtime/include/aarch64-linux-gnu:/usr/include/aarch64-linux-gnu:/usr/include" \
-    /usr/bin/qemu-aarch64-static /bin/bash -c '
+    /tmp/qemu-aarch64-static /bin/bash -c '
         mkdir -p "$XDG_RUNTIME_DIR" && chmod 700 "$XDG_RUNTIME_DIR"
 
-        # Start D-Bus session
+        # Start D-Bus session if the guest image provides it; some slim images use dbus-run-session instead.
         set -e
-        DBUS_ENV=$(dbus-launch --sh-syntax)
-        eval "$DBUS_ENV"
+        DBUS_ENV=""
+        if command -v dbus-launch >/dev/null 2>&1; then
+            DBUS_ENV=$(dbus-launch --sh-syntax 2>/dev/null || true)
+        elif command -v dbus-run-session >/dev/null 2>&1; then
+            DBUS_ENV=$(dbus-run-session --sh-syntax 2>/dev/null || true)
+        fi
+        if [[ -n "$DBUS_ENV" ]]; then
+            eval "$DBUS_ENV"
+        fi
         # This signal is confined to the private PID namespace created above.
         trap "kill -TERM -1 2>/dev/null || true" EXIT
+
+        if ! command -v startlxqt >/dev/null 2>&1; then
+            echo "Desktop entry point 'startlxqt' not found in the guest image; this rootfs is not a full LXQt MaiaLinux desktop." >&2
+            exit 1
+        fi
 
         # Use the same LXQt entry point as the handheld launcher.
         startlxqt >"$MAIALINUX_LOG_DIR/lxqt-session.log" 2>&1 &

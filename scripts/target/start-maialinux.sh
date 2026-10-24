@@ -29,8 +29,7 @@ cat > "$CUR_TTY" 2>/dev/null << 'EOF' || true
   * Left Stick  : Mouse Cursor
   * L1 / A      : Left Click
   * R1 / B      : Right Click
-  * Select / Y  : Toggle Virtual Keyboard (F12)
-  * R3          : Open Terminal (F10)
+    * Terminal    : Open via icon or F10
   * Start       : Enter
 ====================================================
 Initializing swap, controls, and X11 server...
@@ -62,6 +61,7 @@ if [[ -f /etc/maialinux-runtime/pcmanfm-qt-settings.conf ]]; then
     sudo cp -f /etc/maialinux-runtime/pcmanfm-qt-settings.conf /home/ark/.config/pcmanfm-qt/lxqt/settings.conf 2>/dev/null || true
     sudo chown 1002:1002 /home/ark/.config/pcmanfm-qt/lxqt/settings.conf 2>/dev/null || true
 fi
+
 if [[ -f /etc/maialinux-runtime/bin/hello-rg353v ]] && [[ ! -f /home/ark/projects/hello-c/hello-rg353v ]]; then
     sudo cp -f /etc/maialinux-runtime/bin/hello-rg353v /home/ark/projects/hello-c/hello-rg353v 2>/dev/null || true
     sudo cp -f /etc/maialinux-runtime/bin/sdl2-demo /home/ark/projects/hello-sdl2/sdl2-demo 2>/dev/null || true
@@ -71,6 +71,7 @@ fi
 # 1. If invoked from SSH or systemd while EmulationStation is running standalone,
 #    pause EmulationStation so it releases DRM master on /dev/dri/card0.
 RESTART_ES_AFTER=false
+RESTART_OGA_EVENTS_AFTER=false
 if [[ "${1:-}" == "--service" ]] || [[ "${1:-}" == "--standalone" ]]; then
     if systemctl is-active --quiet emulationstation 2>/dev/null; then
         echo "Stopping EmulationStation service for standalone desktop session..."
@@ -78,6 +79,13 @@ if [[ "${1:-}" == "--service" ]] || [[ "${1:-}" == "--standalone" ]]; then
         RESTART_ES_AFTER=true
         sleep 1
     fi
+fi
+
+# 1b. Stop the global hotkey daemon while in LXQt to avoid Start+Select lockups.
+if systemctl is-active --quiet oga_events 2>/dev/null; then
+    echo "Stopping oga_events during LXQt session..."
+    sudo systemctl stop oga_events 2>/dev/null || true
+    RESTART_OGA_EVENTS_AFTER=true
 fi
 
 # 2. Enable 2GB swapfile
@@ -95,15 +103,25 @@ export LD_LIBRARY_PATH="/etc/maialinux-runtime/lib:/usr/lib/aarch64-linux-gnu:/l
 export C_INCLUDE_PATH="/etc/maialinux-runtime/include:/etc/maialinux-runtime/include/aarch64-linux-gnu:/usr/include/aarch64-linux-gnu:/usr/include"
 export CPLUS_INCLUDE_PATH="/etc/maialinux-runtime/include/c++/9:/etc/maialinux-runtime/include/aarch64-linux-gnu/c++/9:/etc/maialinux-runtime/include:/etc/maialinux-runtime/include/aarch64-linux-gnu:/usr/include/aarch64-linux-gnu:/usr/include"
 export SDL_GAMECONTROLLERCONFIG_FILE="/opt/inttools/gamecontrollerdb.txt"
+export HOTKEY="l3"
 
 # 4. Launch gptokeyb controller-to-mouse/keyboard mapper in background
-GPTOKEYB_PID=""
+GPTOKEYB_SUPERVISOR_PID=""
+GPTOKEYB_STOP_FLAG="/tmp/maialinux-gptokeyb.stop"
 if [[ -x "$GPTOKEYB_BIN" ]] && [[ -f "$GPTOKEYB_CONF" ]]; then
     sudo pkill -f "gptokeyb.*desktop.gptk" 2>/dev/null || true
-    sudo SDL_GAMECONTROLLERCONFIG_FILE="/opt/inttools/gamecontrollerdb.txt" \
-        "$GPTOKEYB_BIN" -1 "openbox" -c "$GPTOKEYB_CONF" >/dev/null 2>&1 &
-    GPTOKEYB_PID=$!
-    echo "Started gptokeyb controller mapper (PID: $GPTOKEYB_PID)"
+    rm -f "$GPTOKEYB_STOP_FLAG" 2>/dev/null || true
+    (
+        while [[ ! -f "$GPTOKEYB_STOP_FLAG" ]]; do
+            sudo SDL_GAMECONTROLLERCONFIG_FILE="/opt/inttools/gamecontrollerdb.txt" \
+                "$GPTOKEYB_BIN" -1 "openbox" -c "$GPTOKEYB_CONF" >/dev/null 2>&1 || true
+            [[ -f "$GPTOKEYB_STOP_FLAG" ]] && break
+            # Some firmware combos can terminate gptokeyb; restart it quickly.
+            sleep 0.4
+        done
+    ) &
+    GPTOKEYB_SUPERVISOR_PID=$!
+    echo "Started gptokeyb supervisor (PID: $GPTOKEYB_SUPERVISOR_PID)"
 fi
 
 # 5. Start Xorg + LXQt session (do NOT pass -logfile when Xorg runs setuid-root with elevated privileges)
@@ -130,16 +148,20 @@ done
 echo "Cleaning up MaiaLinux session..."
 pkill -f "matchbox-keyboard" 2>/dev/null || true
 pkill -x "onboard" 2>/dev/null || true
-if [[ -n "$GPTOKEYB_PID" ]]; then
-    sudo kill "$GPTOKEYB_PID" 2>/dev/null || true
+touch "$GPTOKEYB_STOP_FLAG" 2>/dev/null || true
+if [[ -n "$GPTOKEYB_SUPERVISOR_PID" ]]; then
+    kill "$GPTOKEYB_SUPERVISOR_PID" 2>/dev/null || true
 fi
 sudo pkill -f "gptokeyb.*desktop.gptk" 2>/dev/null || true
 
 printf "\033c" > "$CUR_TTY" 2>/dev/null || true
-echo "Returning to ArkOS..." > "$CUR_TTY" 2>/dev/null || true
+echo "Returning to Gaming Mode..." > "$CUR_TTY" 2>/dev/null || true
 
 if [[ "$RESTART_ES_AFTER" == "true" ]]; then
     sudo systemctl start emulationstation 2>/dev/null || true
+fi
+if [[ "$RESTART_OGA_EVENTS_AFTER" == "true" ]]; then
+    sudo systemctl start oga_events 2>/dev/null || true
 fi
 
 exit "$SESSION_STATUS"

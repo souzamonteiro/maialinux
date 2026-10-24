@@ -1,13 +1,21 @@
 #!/usr/bin/env bash
 # install-to-sdcard.sh
-# Installs MaiaLinux onto a mounted ArkOS SD Card (default: /media/roberto/root)
+# Installs MaiaLinux onto a mounted ArkOS SD Card in the current user's media directory
 # using QEMU user-mode emulation (qemu-aarch64-static) at full host PC speed.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-ROOTFS="${1:-/media/roberto/root}"
+CURRENT_USER="${USER:-$(id -un 2>/dev/null || echo root)}"
+MEDIA_BASE="${MEDIA_BASE:-}"
+if [[ -z "$MEDIA_BASE" ]]; then
+    for candidate in "/media/$CURRENT_USER" "/run/media/$CURRENT_USER" "/media/${SUDO_USER:-$CURRENT_USER}" "/run/media/${SUDO_USER:-$CURRENT_USER}"; do
+        [[ -d "$candidate" ]] && { MEDIA_BASE="$candidate"; break; }
+done
+    [[ -n "$MEDIA_BASE" ]] || MEDIA_BASE="/media/$CURRENT_USER"
+fi
+ROOTFS="${1:-$MEDIA_BASE/root}"
 
 if [[ $EUID -ne 0 ]]; then
     echo "Error: Run with sudo: sudo $0 [rootfs_mount_path]" >&2

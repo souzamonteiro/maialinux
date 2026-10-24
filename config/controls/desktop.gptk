@@ -4,19 +4,19 @@
 # L1 / A             -> Left Mouse Click
 # R1 / B             -> Right Mouse Click
 # D-Pad & Right Stick-> Arrow Keys (Up/Down/Left/Right)
-# Select / Y         -> F12 (Toggle Virtual Keyboard)
+# Select / Y         -> (disabled)
 # Start              -> Enter
 # X                  -> Backspace
 # L2 / R2            -> PageUp / PageDown
-# L3                 -> Escape
-# R3                 -> F10 (Open Terminal)
+# L3                 -> Escape (if available)
+# R3                 -> F10 (Open Terminal, if available)
 
-back = f12
+back = ""
 start = enter
 a = mouse_left
 b = mouse_right
 x = backspace
-y = f12
+y = ""
 l1 = mouse_left
 r1 = mouse_right
 l2 = pageup
@@ -39,7 +39,8 @@ right_analog_down = down
 right_analog_left = left
 right_analog_right = right
 
-deadzone_x = 1500
-deadzone_y = 1500
-mouse_scale = 512
-mouse_delay = 12
+deadzone_x = 9000
+deadzone_y = 9000
+# Cursor tuning (edit this file on-device at /etc/maialinux/desktop.gptk)
+mouse_scale = 4096
+mouse_delay = 30

@@ -42,7 +42,7 @@ def main():
 
     tk.Button(
         btn_frame,
-        text="Teclado Virtual (F12)",
+        text="Teclado Virtual (Select/F12)",
         command=toggle_keyboard,
         bg="#89b4fa",
         fg="#11111b",

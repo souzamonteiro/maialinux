@@ -12,9 +12,14 @@ set -uo pipefail
 RUNTIME_DIR="/etc/maialinux-runtime"
 ACTION="${1:-sync}"
 
-# Compatibility entry point for older boot hooks. Never write to the framebuffer
-# or perform installation work on the critical boot path.
+# Compatibility entry point for older boot hooks.
+# Draw MaiaLinux splash as early as possible without touching kernel/image.
 if [[ "$ACTION" == "--boot-splash" ]] || [[ "$ACTION" == "boot" ]]; then
+    RAW_SPLASH="${RUNTIME_DIR}/boot/splash_640x480_bgra32.raw"
+    if [[ -c /dev/fb0 ]] && [[ -r "$RAW_SPLASH" ]]; then
+        # Best-effort overwrite of early boot frame to mask stock branding quickly.
+        dd if="$RAW_SPLASH" of=/dev/fb0 bs=4096 conv=fsync status=none 2>/dev/null || true
+    fi
     exit 0
 fi
 
@@ -87,7 +92,7 @@ if [[ -d "${RUNTIME_DIR}/wallpapers" ]]; then
     chown -R 1002:1002 /home/ark/Pictures 2>/dev/null || true
 fi
 
-# 6. Ensure PCManFM-Qt LXQt wallpaper configuration and Desktop entries are active
+# 6. Ensure PCManFM-Qt LXQt wallpaper configuration and launcher entries are active
 if [[ -f "${RUNTIME_DIR}/pcmanfm-qt-settings.conf" ]] && [[ ! -f /home/ark/.config/pcmanfm-qt/lxqt/.maialinux_wp_init ]]; then
     mkdir -p /home/ark/.config/pcmanfm-qt/lxqt 2>/dev/null || true
     cp -f "${RUNTIME_DIR}/pcmanfm-qt-settings.conf" /home/ark/.config/pcmanfm-qt/lxqt/settings.conf 2>/dev/null || true
@@ -96,10 +101,18 @@ if [[ -f "${RUNTIME_DIR}/pcmanfm-qt-settings.conf" ]] && [[ ! -f /home/ark/.conf
 fi
 if [[ -d "${RUNTIME_DIR}/desktop-entries" ]]; then
     mkdir -p /home/ark/Desktop /usr/local/share/applications 2>/dev/null || true
-    install -m 755 "${RUNTIME_DIR}/desktop-entries/"*.desktop /home/ark/Desktop/ 2>/dev/null || true
     install -m 755 "${RUNTIME_DIR}/desktop-entries/"*.desktop /usr/local/share/applications/ 2>/dev/null || true
-    chown -R 1002:1002 /home/ark/Desktop 2>/dev/null || true
 fi
+
+# Remove Desktop shortcuts and trust bootstrap files to keep desktop clean.
+rm -f /home/ark/Desktop/maialinux-keyboard.desktop \
+      /home/ark/Desktop/maialinux-wallpaper.desktop \
+      /home/ark/Desktop/geany-dev.desktop \
+      /home/ark/Desktop/qterminal-dev.desktop \
+      /home/ark/Desktop/maialinux-projects.desktop \
+      /home/ark/Desktop/return-to-es.desktop \
+      /home/ark/.config/autostart/maialinux-trust-desktop.desktop \
+      /usr/local/bin/maialinux-trust-desktop-launchers 2>/dev/null || true
 
 # 7. Sync EmulationStation maialinux-4x3 and maialinux-16x9 theme files into es-theme-nes-box
 ES_THEME_DIR="/roms/themes/es-theme-nes-box"

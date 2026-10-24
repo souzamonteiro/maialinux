@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # update-mounted-sdcard.sh
-# Quickly updates a mounted Anbernic RG353V ArkOS/MaiaLinux SD card (/media/$USER/root and /media/$USER/BOOT)
+# Quickly updates a mounted Anbernic RG353V ArkOS/MaiaLinux SD card in the current user's media directory
 # WITHOUT requiring sudo on the host PC, by writing to user-writable paths (/etc/maialinux-runtime,
 # /opt/system/Tools, /roms/tools, /home/ark, and in-place to /usr/bin/emulationstation/emulationstation.sh [mode 0777])
 # and hooking maialinux-boot-setup.sh into the boot sequence.
@@ -8,6 +8,14 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+CURRENT_USER="${USER:-$(id -un 2>/dev/null || echo root)}"
+MEDIA_BASE="${MEDIA_BASE:-}"
+if [[ -z "$MEDIA_BASE" ]]; then
+    for candidate in "/media/$CURRENT_USER" "/run/media/$CURRENT_USER" "/media/${SUDO_USER:-$CURRENT_USER}" "/run/media/${SUDO_USER:-$CURRENT_USER}"; do
+        [[ -d "$candidate" ]] && { MEDIA_BASE="$candidate"; break; }
+done
+    [[ -n "$MEDIA_BASE" ]] || MEDIA_BASE="/media/$CURRENT_USER"
+fi
 ROOTFS="${1:-}"
 BOOTFS="${2:-}"
 
@@ -17,7 +25,7 @@ if [[ -z "$ROOTFS" ]]; then
     if [[ -n "$SD_ROOT_MNT" ]]; then
         ROOTFS="$SD_ROOT_MNT"
     else
-        ROOTFS="/media/${USER:-roberto}/root"
+        ROOTFS="$MEDIA_BASE/root"
     fi
 fi
 if [[ -z "$BOOTFS" ]]; then
@@ -25,7 +33,7 @@ if [[ -z "$BOOTFS" ]]; then
     if [[ -n "$SD_BOOT_MNT" ]]; then
         BOOTFS="$SD_BOOT_MNT"
     else
-        BOOTFS="/media/${USER:-roberto}/BOOT"
+        BOOTFS="$MEDIA_BASE/BOOT"
     fi
 fi
 
@@ -42,12 +50,14 @@ fi
 echo "==> Updating MaiaLinux on mounted SD card ($ROOTFS)..."
 
 RUNTIME_DIR="$ROOTFS/etc/maialinux-runtime"
+MAIALINUX_ETC_DIR="$ROOTFS/etc/maialinux"
 mkdir -p "$RUNTIME_DIR/scripts" \
          "$RUNTIME_DIR/boot" \
          "$RUNTIME_DIR/plymouth" \
          "$RUNTIME_DIR/wallpapers" \
          "$RUNTIME_DIR/emulationstation" \
-         "$RUNTIME_DIR/desktop-entries" 2>/dev/null || true
+         "$RUNTIME_DIR/desktop-entries" \
+         "$MAIALINUX_ETC_DIR" 2>/dev/null || true
 
 # 1. Copy target scripts into /etc/maialinux-runtime/scripts and /etc/maialinux-runtime/
 cp -f "$REPO_ROOT/scripts/target/"*.sh "$RUNTIME_DIR/scripts/"
@@ -56,6 +66,7 @@ cp -f "$REPO_ROOT/config/keyboard/maialinux-keyboard-toggle" "$RUNTIME_DIR/scrip
 cp -f "$REPO_ROOT/scripts/target/maialinux-boot-setup.sh" "$RUNTIME_DIR/maialinux-boot-setup.sh"
 cp -f "$REPO_ROOT/config/systemd/emulationstation.service.d/maialinux.conf" "$RUNTIME_DIR/emulationstation.conf"
 cp -f "$REPO_ROOT/scripts/target/maialinux-wallpaper.sh" "$RUNTIME_DIR/maialinux-wallpaper.sh"
+cp -f "$REPO_ROOT/config/controls/desktop.gptk" "$MAIALINUX_ETC_DIR/desktop.gptk"
 chmod +x "$RUNTIME_DIR/scripts/"* "$RUNTIME_DIR/maialinux-boot-setup.sh" "$RUNTIME_DIR/maialinux-wallpaper.sh" 2>/dev/null || true
 
 # Also copy directly to /usr/local/bin if writable
@@ -92,7 +103,17 @@ cp -rf "$REPO_ROOT/config/emulationstation/"* "$RUNTIME_DIR/emulationstation/"
 cp -rf "$REPO_ROOT/config/desktop-entries/"*.desktop "$RUNTIME_DIR/desktop-entries/"
 cp -f "$REPO_ROOT/config/lxqt/pcmanfm-qt-settings.conf" "$RUNTIME_DIR/pcmanfm-qt-settings.conf"
 cp -f "$REPO_ROOT/config/lxqt/openbox-lxqt-rc.xml" "$RUNTIME_DIR/openbox-lxqt-rc.xml"
-rm -f "$RUNTIME_DIR/boot/.resource_flashed_v1" "$RUNTIME_DIR/boot/.resource_flashed_v2" 2>/dev/null || true
+rm -f "$ROOTFS/etc/systemd/logind.conf.d/maialinux-powerkey.conf" "$RUNTIME_DIR/logind-powerkey.conf" 2>/dev/null || true
+
+# Remove desktop shortcuts and launcher trust helper files.
+rm -f "$ROOTFS/home/ark/Desktop/maialinux-keyboard.desktop" \
+      "$ROOTFS/home/ark/Desktop/maialinux-wallpaper.desktop" \
+      "$ROOTFS/home/ark/Desktop/geany-dev.desktop" \
+      "$ROOTFS/home/ark/Desktop/qterminal-dev.desktop" \
+      "$ROOTFS/home/ark/Desktop/maialinux-projects.desktop" \
+      "$ROOTFS/home/ark/Desktop/return-to-es.desktop" \
+      "$ROOTFS/home/ark/.config/autostart/maialinux-trust-desktop.desktop" \
+      "$ROOTFS/usr/local/bin/maialinux-trust-desktop-launchers" 2>/dev/null || true
 
 if [[ -d "$ROOTFS/roms/themes/es-theme-nes-box" ]]; then
     cp -rf "$REPO_ROOT/config/emulationstation/." "$ROOTFS/roms/themes/es-theme-nes-box/" 2>/dev/null || true

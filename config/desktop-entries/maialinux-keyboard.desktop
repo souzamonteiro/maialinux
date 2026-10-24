@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
-Name=Virtual Keyboard (F12)
-Name[pt_BR]=Teclado Virtual (Y/Select)
+Name=Virtual Keyboard (Y/Select/F12)
+Name[pt_BR]=Teclado Virtual (Y/Select/F12)
 Comment=Show or hide the on-screen virtual keyboard
 Exec=/usr/local/bin/maialinux-keyboard-toggle
 Icon=input-keyboard

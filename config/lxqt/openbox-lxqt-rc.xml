@@ -111,6 +111,11 @@
     <keybind key="F11">
       <action name="ToggleFullscreen"/>
     </keybind>
+    <keybind key="XF86PowerOff">
+      <action name="Execute">
+        <command>/usr/local/bin/maialinux-return-to-es</command>
+      </action>
+    </keybind>
   </keyboard>
   <mouse>
     <dragThreshold>4</dragThreshold>

@@ -31,12 +31,12 @@ if [[ $EUID -ne 0 ]]; then
     exit 1
 fi
 
-log_step "1/9 Backing up ArkOS Mali Bifrost G52 GPU drivers"
+log_step "1/9 Backing up MaiaLinux base Mali Bifrost G52 GPU drivers"
 mkdir -p /opt/maialinux /etc/maialinux
 install -m 755 "$REPO_ROOT/scripts/target/fix-mali-symlinks.sh" /usr/local/bin/fix-mali-symlinks.sh
 /usr/local/bin/fix-mali-symlinks.sh --backup
 
-# Remove ArkOS dpkg path-exclude on /usr/lib/{aarch64-linux-gnu,arm-linux-gnueabihf} if present
+# Remove base-image dpkg path-exclude on /usr/lib/{aarch64-linux-gnu,arm-linux-gnueabihf} if present
 # so dev libraries and headers unpack cleanly; fix-mali-symlinks.sh restores Mali blobs afterwards.
 if [[ -f /etc/dpkg/dpkg.cfg.d/excludes ]]; then
     mv /etc/dpkg/dpkg.cfg.d/excludes /opt/maialinux/dpkg-excludes.bak
@@ -69,7 +69,7 @@ EOF
 
 apt-get update
 
-log_step "3/9 Resolving ArkOS libmali / libwayland-egl1 dpkg conflict"
+log_step "3/9 Resolving base-system libmali / libwayland-egl1 dpkg conflict"
 rm -f /lib/aarch64-linux-gnu/libwayland-egl.so* /usr/lib/aarch64-linux-gnu/libwayland-egl.so* 2>/dev/null || true
 if dpkg -s libmali-rk-bifrost-g31-rxp0-wayland-gbm >/dev/null 2>&1; then
     dpkg --remove --force-all libmali-rk-bifrost-g31-rxp0-wayland-gbm || true
@@ -170,9 +170,9 @@ PACKAGES=(
 
 apt-get install -y "${PACKAGES[@]}"
 
-# ArkOS base image strips /usr/include/* while leaving *-dev packages marked as installed.
+# Base image strips /usr/include/* while leaving *-dev packages marked as installed.
 # Detect any installed *-dev package with missing /usr/include headers and reinstall it.
-log_info "Checking for stripped /usr/include headers from ArkOS base image..."
+log_info "Checking for stripped /usr/include headers from base image..."
 MISSING_HEADER_PKGS=()
 for pkg in $(dpkg-query -W -f='${Package}\n' '*-dev' 2>/dev/null); do
     while IFS= read -r hdr; do
@@ -194,7 +194,7 @@ for dm in lightdm sddm gdm gdm3 lxdm; do
     systemctl stop "$dm" 2>/dev/null || true
 done
 
-log_step "5/9 Restoring ArkOS Mali Bifrost G52 GPU drivers and fixing library symlinks"
+log_step "5/9 Restoring MaiaLinux base Mali Bifrost G52 GPU drivers and fixing library symlinks"
 /usr/local/bin/fix-mali-symlinks.sh --restore
 
 log_step "6/9 Installing Xorg, LXQt (640x480), Openbox, Geany, and Controller configurations"
@@ -206,6 +206,7 @@ install -m 644 "$REPO_ROOT/config/xorg/Xwrapper.config" /etc/X11/Xwrapper.config
 
 # Install controller mapping for desktop
 install -m 644 "$REPO_ROOT/config/controls/desktop.gptk" /etc/maialinux/desktop.gptk
+rm -f /etc/systemd/logind.conf.d/maialinux-powerkey.conf 2>/dev/null || true
 
 # Install target management & launcher scripts
 install -Dm755 "$REPO_ROOT/scripts/target/maialinux-start-es.sh" /usr/local/bin/maialinux-start-es.sh
@@ -272,12 +273,6 @@ install -m 644 "$REPO_ROOT/config/geany/geany.conf" "$TARGET_HOME/.config/geany/
 install -m 755 "$REPO_ROOT/config/desktop-entries/maialinux-keyboard.desktop" /usr/local/share/applications/maialinux-keyboard.desktop
 install -m 755 "$REPO_ROOT/config/desktop-entries/maialinux-wallpaper.desktop" /usr/local/share/applications/maialinux-wallpaper.desktop
 install -m 755 "$REPO_ROOT/config/desktop-entries/return-to-es.desktop" /usr/local/share/applications/return-to-es.desktop
-install -m 755 "$REPO_ROOT/config/desktop-entries/maialinux-keyboard.desktop" "$TARGET_HOME/Desktop/maialinux-keyboard.desktop"
-install -m 755 "$REPO_ROOT/config/desktop-entries/maialinux-wallpaper.desktop" "$TARGET_HOME/Desktop/maialinux-wallpaper.desktop"
-install -m 755 "$REPO_ROOT/config/desktop-entries/geany-dev.desktop" "$TARGET_HOME/Desktop/geany-dev.desktop"
-install -m 755 "$REPO_ROOT/config/desktop-entries/qterminal-dev.desktop" "$TARGET_HOME/Desktop/qterminal-dev.desktop"
-install -m 755 "$REPO_ROOT/config/desktop-entries/maialinux-projects.desktop" "$TARGET_HOME/Desktop/maialinux-projects.desktop"
-install -m 755 "$REPO_ROOT/config/desktop-entries/return-to-es.desktop" "$TARGET_HOME/Desktop/return-to-es.desktop"
 
 log_step "7/9 Installing & compiling starter development projects in ~/projects"
 cp -rf "$REPO_ROOT/examples/"* "$TARGET_HOME/projects/"
@@ -295,7 +290,6 @@ fi
 ssh-keygen -A >/dev/null 2>&1 || true
 echo "${TARGET_USER}:arkos" | chpasswd || true
 systemctl enable ssh 2>/dev/null || true
-
 install -m 644 "$REPO_ROOT/config/systemd/maialinux-desktop.service" /etc/systemd/system/maialinux-desktop.service
 systemctl disable maialinux-desktop.service 2>/dev/null || true
 systemctl enable emulationstation.service 2>/dev/null || true

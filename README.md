@@ -16,20 +16,19 @@ It transforms the RG353V into a complete **pocket Linux computer** featuring **L
   - Boots into **EmulationStation** by default and lets you launch the **LXQt** desktop at any time from `Options -> Tools -> Launch-MaiaLinux-LXQt`.
   - Includes `Switch-Boot-Mode.sh` (available in the `Tools` menu or via CLI) to toggle between booting into EmulationStation (`es`) or booting directly into the LXQt Desktop (`desktop`).
 - **Tailored for Both 640×480 (3.5" IPS 4:3) and 1920×1080 (HDMI 16:9)**:
-  - **Custom Bootloader, Kernel DRM & Plymouth Splash**: Packs `logo.bmp` and `logo_kernel.bmp` into the Rockchip `resource` partition (`resource.img` via `resource_tool`) and installs a resolution-aware **Plymouth** graphical boot theme (`4:3` and `16:9` auto-detection), plus custom ArkOS launch splash images (`/roms/launchimages/loading.jpg`).
+  - **Custom Bootloader, Kernel DRM & Plymouth Splash**: Packs `logo.bmp` and `logo_kernel.bmp` into the Rockchip `resource` partition (`resource.img` via `resource_tool`) and installs a resolution-aware **Plymouth** graphical boot theme (`4:3` and `16:9` auto-detection), plus MaiaLinux launch splash images (`/roms/launchimages/loading.jpg`).
   - **LXQt & EmulationStation Wallpapers (`4:3` & `16:9` HDMI)**: Includes **MaiaLinux at Neon Twilight** wallpapers for both the built-in `640×480` display and `1920×1080` HDMI output, with automatic HDMI detection on desktop launch and one-click switching (`Wallpaper (4:3 / HDMI)` on the desktop or `Options -> Tools -> Switch-Wallpaper-4x3-HDMI` in EmulationStation).
   - **Compact 640×480 UI**: `24px` single bottom LXQt panel, crisp `8pt/9pt` typography, Catppuccin/Fusion dark theme, and maximized window geometry.
 - **Virtual Keyboard + Touchscreen + Physical Gamepad Controls (`gptokeyb`)**:
   - **Touchscreen**: Native multi-touch support via `libinput` (tap to click and type on the on-screen keyboard).
-  - **Virtual Keyboard (`matchbox-keyboard` / `onboard`)**: Docked cleanly at the bottom of the screen (`640×160`, `y=296`) with no titlebar; toggle anytime via the panel icon or by pressing **Select** / **Y** (`F12`).
+  - **Virtual Keyboard (`matchbox-keyboard` / `onboard`)**: Docked cleanly at the bottom of the screen (`640×160`, `y=296`) with no titlebar; open from the LXQt application menu/panel launcher.
   - **Desktop Gamepad Mapping**:
     - **Left Analog Stick**: Mouse Cursor
     - **L1 / A Button**: Left Mouse Click
     - **R1 / B Button**: Right Mouse Click
-    - **Select / Y Button**: Show / Hide Virtual Keyboard (`F12`)
-    - **R3 (Right Stick Click)**: Open Terminal (`F10`)
+    - **Terminal**: Open from panel icon or with `F10`
     - **D-Pad / Right Analog Stick**: Arrow Keys (navigate code and menus)
-    - **Start**: Enter | **X**: Backspace | **L3**: Esc | **L2 / R2**: PageUp / PageDown
+    - **Start**: Enter | **X**: Backspace | **L2 / R2**: PageUp / PageDown
 - **Surgical Mali G52 GPU Preservation (`libmali-bifrost-g52-g2p0-gbm.so`) + Wayland-EGL GTK3 Fix**:
   - Automatically resolves the stock ArkOS `libmali-rk-bifrost-g31-rxp0-wayland-gbm` vs. `libwayland-egl1` package conflict, keeping `libMali.so`, `libEGL.so.1`, `libGLESv2.so.2`, and `libgbm.so.1` pointed to the Mali Bifrost G52 GBM driver for EmulationStation/RetroArch while providing Mesa's `libwayland-egl.so.1` so GTK3 applications (`Geany`, `Onboard`) run cleanly under X11.
   - Restores `/usr/include` development headers stripped from the stock ArkOS base image so native C/C++/SDL2 compilation works out of the box on the handheld.
@@ -42,7 +41,11 @@ It transforms the RG353V into a complete **pocket Linux computer** featuring **L
 
 ---
 
-## Quick Start for End Users (GitHub Releases)
+## Quick Start for End Users (Project Site / GitHub Releases)
+
+The compiled, ready-to-install MaiaLinux distribution for the RG353V and the QEMU-ready desktop image are available from the official project site: https://apps.maiaplatform.org/maialinux
+
+> The compiled distribution, ready to be installed on the device and executed in QEMU, can be downloaded from this site.
 
 Download the pre-built release artifacts from the [**GitHub Releases**](../../releases) page (or generate them locally into `distro/` with `make build-distro`):
 
@@ -105,6 +108,20 @@ make build-distro
 ```
 Generates `distro/MaiaLinux-RG353V-v1.0.0-sdcard.img.xz`, `distro/MaiaLinux-RG353V-v1.0.0-qemu.qcow2`, and their `.sha256` checksum files entirely in user-space.
 
+### Reproducible Release Automation (Recommended)
+
+Use the automated pipeline that fetches upstream inputs, stages vendor runtime libraries, rebuilds the RG353V kernel bundle, and emits release artifacts in `distro/`:
+
+```bash
+make build-release \
+  ARKOS_IMAGE_URL="https://<upstream>/ArkOS_RG353V_*.img.xz" \
+  ROOTFS=/media/$USER/root1
+```
+
+Detailed release engineering instructions are in:
+
+- `docs/REPRODUCIBLE_DISTRIBUTION.md`
+
 ### Option 2: Install Directly onto a Mounted ArkOS SD Card
 
 ```bash
@@ -117,6 +134,78 @@ make install-sdcard SDCARD_ROOT=/media/$USER/root
 scp -r . ark@<RG353V_IP>:/tmp/maialinux
 ssh ark@<RG353V_IP> "sudo /tmp/maialinux/install-on-device.sh"
 ```
+
+### Option 4: Build and Deploy the Correct RG353V Kernel 4 Bundle (Recommended)
+
+Use this to build the compatible RG353V kernel line (`4.19.172`) as a full bundle (`Image + rk3566.dtb + modules`) and deploy safely with rollback.
+
+```bash
+# Build kernel bundle in distro/kernel-rg353v-4.19.172
+make build-kernel4-bundle
+
+# Deploy bundle to mounted BOOT1/root1 with backup + rollback
+make deploy-kernel4-bundle
+```
+
+The build script writes:
+- `distro/kernel-rg353v-4.19.172/Image`
+- `distro/kernel-rg353v-4.19.172/rk3566.dtb`
+- `distro/kernel-rg353v-4.19.172/modules-<kernel_release>.tar.xz`
+- metadata files (`Image.meta`, `bundle.meta`) for traceability.
+
+### Option 5: Build RK3566 Kernel Image with Custom Early Boot Logo (Legacy Image-Only Flow)
+
+This legacy flow builds only `Image` and is still available for experimentation.
+
+```bash
+# Default MaiaLinux assets (LCD + HDMI):
+make build-logo-image
+
+# Custom assets:
+./scripts/host/build-rk3566-image-with-logo.sh \
+  --logo images/logo-kernel-rg353-640x480.png \
+  --update-hdmi yes \
+  --hdmi-logo images/logo-kernel-hdmi-1280x720.png \
+  --output distro/Image
+```
+
+Notes:
+- The script accepts local file paths and URLs for logo sources.
+- For first run on a fresh host, add `--install-deps` to install required packages.
+- The generated Image can be copied to BOOT1 after backing up the current one.
+
+Monitor build progress:
+
+```bash
+# One-shot status
+make monitor-logo-build
+
+# Live log tail
+./scripts/host/monitor-rk3566-logo-build.sh --watch
+```
+
+Safe deploy to BOOT1 with backup + rollback:
+
+```bash
+make deploy-logo-image
+```
+
+Or directly:
+
+```bash
+./scripts/host/deploy-boot1-image-safe.sh distro/Image /media/$USER/BOOT1
+```
+
+The script creates `backups/boot-YYYYmmdd-HHMMSS/Image.before` and restores it automatically if verification fails.
+If `distro/Image.meta` exists, the deploy script checks kernel/module compatibility against `root1/lib/modules` and blocks incompatible deploys by default.
+
+Keep current kernel and update only boot/splash images:
+
+```bash
+make update-logo-only
+```
+
+This updates only `logo.bmp`, `logo_kernel.bmp`, and `loading.jpg` on mounted media and does not modify `BOOT1/Image`.
 
 ---
 
@@ -132,13 +221,21 @@ ssh ark@<RG353V_IP> "sudo /tmp/maialinux/install-on-device.sh"
      ```
 3. **Switch Wallpapers Between 4:3 (640×480) and 16:9 (1920×1080 HDMI)**:
    - Automatic detection runs on every LXQt startup (`maialinux-wallpaper.sh auto`).
-   - To toggle manually, double-click **Wallpaper (4:3 / HDMI)** on the LXQt desktop, select **Options** -> **Tools** -> **Switch-Wallpaper-4x3-HDMI** in EmulationStation, or change **Theme Color** in EmulationStation (`Start -> UI Settings -> Theme Configuration -> Theme Color`) between `MaiaLinux Neon (640x480 4:3)` and `MaiaLinux Neon (1920x1080 HDMI)`.
+  - To toggle manually, select **Options** -> **Tools** -> **Switch-Wallpaper-4x3-HDMI** in EmulationStation, or change **Theme Color** in EmulationStation (`Start -> UI Settings -> Theme Configuration -> Theme Color`) between `MaiaLinux Neon (640x480 4:3)` and `MaiaLinux Neon (1920x1080 HDMI)`.
 4. **Return to Gaming (EmulationStation)**:
-   - Double-click **Return to Gaming (ES)** on the desktop, or select `Maia -> Leave -> Logout` from the bottom-left panel menu.
+  - Select `Maia -> Leave -> Logout` from the bottom-left panel menu.
 5. **Run the System Health Check**:
    ```bash
    maialinux-healthcheck.sh
    ```
+
+6. **Tune Gamepad Cursor Speed (LXQt)**:
+   - Edit `/etc/maialinux/desktop.gptk` and adjust these two values:
+     - `mouse_scale` (higher = faster cursor movement)
+     - `mouse_delay` (higher = slower update cadence)
+   - MaiaLinux defaults are conservative for handheld use:
+     - `mouse_scale = 220`
+     - `mouse_delay = 18`
 
 ---
 
@@ -159,10 +256,10 @@ maialinux/
 │   ├── emulationstation/           # EmulationStation NES-Box theme customizations (4:3 & 16:9 HDMI)
 │   ├── xorg/                       # Rockchip DRM modesetting (Glamor off), Touchscreen & Xwrapper
 │   ├── lxqt/                       # LXQt + Openbox + PCManFM-Qt profile tuned for 640x480
-│   ├── keyboard/                   # Virtual keyboard toggle script (F12 / Select / Y)
+│   ├── keyboard/                   # Virtual keyboard launcher/toggle script
 │   ├── controls/                   # gptokeyb profile (desktop.gptk) for the RG353V gamepad
 │   ├── geany/                      # Geany IDE configuration for 640x480
-│   ├── desktop-entries/            # Desktop & Application menu shortcuts
+│   ├── desktop-entries/            # Application menu launchers
 │   └── systemd/                    # maialinux-desktop.service systemd unit
 ├── scripts/
 │   ├── host/                       # Host PC scripts (build-distro-releases.py, run-qemu-image.sh, test-qemu-desktop.sh)
