@@ -24,9 +24,9 @@ OUTPUT_IMAGE="$REPO_ROOT/distro/Image-custom-logo"
 OUTPUT_META=""
 LOG_FILE=""
 PID_FILE=""
-LOGO_INPUT=""
-HDMI_LOGO_INPUT=""
-UPDATE_HDMI="no"
+LOGO_INPUT="$REPO_ROOT/images/logo-kernel-rg353-640x480.png"
+HDMI_LOGO_INPUT="$REPO_ROOT/images/logo-kernel-hdmi-1280x720.png"
+UPDATE_HDMI="yes"
 INSTALL_DEPS="no"
 REFRESH_KERNEL="no"
 JOBS="$(nproc)"
@@ -36,13 +36,15 @@ PYTHON_SHIM_DIR=""
 usage() {
   cat <<'EOF'
 Usage:
-  scripts/host/build-rk3566-image-with-logo.sh --logo <png-or-url> [options]
+  scripts/host/build-rk3566-image-with-logo.sh [--logo <png-or-url>] [options]
 
-Required:
-  --logo <path|url>           LCD logo source (640x480 PNG recommended)
+Default assets:
+  --logo defaults to images/logo-kernel-rg353-640x480.png
+  --hdmi-logo defaults to images/logo-kernel-hdmi-1280x720.png
 
 Options:
-  --update-hdmi <yes|no>      Also replace HDMI logo (default: no)
+  --logo <path|url>           LCD logo source (640x480 PNG recommended)
+  --update-hdmi <yes|no>      Also replace HDMI logo (default: yes)
   --hdmi-logo <path|url>      HDMI logo source (1280x720 PNG recommended)
   --output <path>             Output Image path (default: distro/Image-custom-logo)
   --work-root <path>          Build/cache directory (default: .cache/rk3566-logo-build)
@@ -113,7 +115,15 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$LOGO_INPUT" ]]; then
-  echo "Error: --logo is required." >&2
+  LOGO_INPUT="$REPO_ROOT/images/logo-kernel-rg353-640x480.png"
+fi
+
+if [[ -z "$HDMI_LOGO_INPUT" ]]; then
+  HDMI_LOGO_INPUT="$REPO_ROOT/images/logo-kernel-hdmi-1280x720.png"
+fi
+
+if [[ ! -f "$LOGO_INPUT" && ! "$LOGO_INPUT" =~ ^https?:// ]]; then
+  echo "Error: logo source not found: $LOGO_INPUT" >&2
   usage >&2
   exit 1
 fi
@@ -360,7 +370,11 @@ if [[ "$UPDATE_HDMI" == "yes" ]]; then
       exit 1
     }
   else
-    convert "$TMP_DIR/logo.png" -resize 1280x720! "$TMP_DIR/hdmi_logo.png"
+    if [[ -f "$REPO_ROOT/images/logo-kernel-hdmi-1280x720.png" ]]; then
+      cp -f "$REPO_ROOT/images/logo-kernel-hdmi-1280x720.png" "$TMP_DIR/hdmi_logo.png"
+    else
+      convert "$TMP_DIR/logo.png" -resize 1280x720! "$TMP_DIR/hdmi_logo.png"
+    fi
   fi
 fi
 

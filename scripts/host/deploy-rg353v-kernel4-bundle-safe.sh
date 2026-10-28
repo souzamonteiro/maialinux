@@ -1,25 +1,78 @@
 #!/usr/bin/env bash
 # Deploy a RG353V kernel bundle (Image + rk3566.dtb + modules archive)
-# to mounted BOOT1/rootfs with rollback on failure.
+# to mounted BOOT/ROOTFS with rollback on failure.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
+resolve_media_base() {
+  local media_base="${MEDIA_BASE:-}"
+  if [[ -n "$media_base" && -d "$media_base" ]]; then
+    printf '%s\n' "$media_base"
+    return 0
+  fi
+
+  for candidate in \
+    "/media/${SUDO_USER:-$USER}" \
+    "/run/media/${SUDO_USER:-$USER}" \
+    "/media/${USER}" \
+    "/run/media/${USER}"; do
+    if [[ -d "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+
+  printf '%s\n' "/media/${SUDO_USER:-$USER}"
+}
+
+pick_mount() {
+  local media_base="$1"
+  local prefer="$2"
+  local fallback="$3"
+
+  local candidates=(
+    "$media_base/$prefer"
+    "$media_base/${prefer}1"
+    "$media_base/${prefer^^}"
+    "$media_base/${prefer^^}1"
+    "$media_base/$fallback"
+    "$media_base/${fallback}1"
+    "$media_base/${fallback^^}"
+    "$media_base/${fallback^^}1"
+    "$media_base/BOOT"
+    "$media_base/boot"
+    "$media_base/ROOTFS"
+    "$media_base/rootfs"
+  )
+
+  local candidate
+  for candidate in "${candidates[@]}"; do
+    if [[ -d "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+
+  printf '%s\n' "$media_base/$prefer"
+}
+
 BUNDLE_DIR="${1:-$REPO_ROOT/distro/kernel-rg353v-4.19.172}"
-BOOTFS="${2:-/media/${SUDO_USER:-$USER}/BOOT1}"
-ROOTFS="${3:-/media/${SUDO_USER:-$USER}/root1}"
+MEDIA_BASE="$(resolve_media_base)"
+BOOTFS="${2:-$(pick_mount "$MEDIA_BASE" "BOOT" "boot")}"
+ROOTFS="${3:-$(pick_mount "$MEDIA_BASE" "root" "ROOT")}"
 ASSUME_YES="no"
 FORCE_DEPLOY="no"
 
 usage() {
   cat <<'EOF'
 Usage:
-  scripts/host/deploy-rg353v-kernel4-bundle-safe.sh [bundle_dir] [boot1_mount] [rootfs_mount] [options]
+  scripts/host/deploy-rg353v-kernel4-bundle-safe.sh [bundle_dir] [boot_mount] [rootfs_mount] [options]
 
 Examples:
   scripts/host/deploy-rg353v-kernel4-bundle-safe.sh
-  scripts/host/deploy-rg353v-kernel4-bundle-safe.sh distro/kernel-rg353v-4.19.172 /media/$USER/BOOT1 /media/$USER/root1 --yes
+  scripts/host/deploy-rg353v-kernel4-bundle-safe.sh distro/kernel-rg353v-5.10 /media/$USER/BOOT /media/$USER/ROOTFS --yes
 
 Options:
   --yes       Skip interactive confirmation
@@ -54,11 +107,17 @@ if [[ ! -d "$BUNDLE_DIR" ]]; then
 fi
 
 IMAGE_SRC="$BUNDLE_DIR/Image"
-DTB_SRC="$BUNDLE_DIR/rk3566.dtb"
+DTB_SRC=""
+for candidate in "$BUNDLE_DIR/rk3566-353v.dtb" "$BUNDLE_DIR/rk3566.dtb"; do
+  if [[ -f "$candidate" ]]; then
+    DTB_SRC="$candidate"
+    break
+  fi
+done
 META_FILE="$BUNDLE_DIR/bundle.meta"
 
-if [[ ! -f "$IMAGE_SRC" || ! -f "$DTB_SRC" || ! -f "$META_FILE" ]]; then
-  echo "Error: bundle is incomplete. Expected Image, rk3566.dtb, and bundle.meta in $BUNDLE_DIR" >&2
+if [[ ! -f "$IMAGE_SRC" || -z "$DTB_SRC" || ! -f "$META_FILE" ]]; then
+  echo "Error: bundle is incomplete. Expected Image, rk3566-353v.dtb or rk3566.dtb, and bundle.meta in $BUNDLE_DIR" >&2
   exit 1
 fi
 
@@ -77,11 +136,17 @@ if [[ ! -d "$BOOTFS" || ! -d "$ROOTFS" ]]; then
 fi
 
 TARGET_IMAGE="$BOOTFS/Image"
-TARGET_DTB="$BOOTFS/rk3566.dtb"
+TARGET_DTB=""
+for candidate in "$BOOTFS/rk3566-353v.dtb" "$BOOTFS/rk3566.dtb"; do
+  if [[ -f "$candidate" ]]; then
+    TARGET_DTB="$candidate"
+    break
+  fi
+done
 TARGET_MODULES_DIR="$ROOTFS/lib/modules/$KERNEL_RELEASE"
 
-if [[ ! -f "$TARGET_IMAGE" || ! -f "$TARGET_DTB" ]]; then
-  echo "Error: expected BOOT1 files not found (Image/rk3566.dtb) at $BOOTFS" >&2
+if [[ ! -f "$TARGET_IMAGE" || -z "$TARGET_DTB" ]]; then
+  echo "Error: expected BOOT files not found (Image + rk3566-353v.dtb or rk3566.dtb) at $BOOTFS" >&2
   exit 1
 fi
 
@@ -155,6 +220,9 @@ rm -rf "$TARGET_MODULES_DIR"
 cp -a "$EXTRACTED_MODULES_DIR" "$TARGET_MODULES_DIR"
 
 cp -f "$DTB_SRC" "$TARGET_DTB"
+if [[ "$TARGET_DTB" != "$BOOTFS/rk3566.dtb" ]]; then
+  cp -f "$DTB_SRC" "$BOOTFS/rk3566.dtb"
+fi
 cp -f "$IMAGE_SRC" "$TARGET_IMAGE"
 sync
 

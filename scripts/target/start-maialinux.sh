@@ -53,19 +53,23 @@ if [[ -f /etc/maialinux-runtime/lib/libwayland-egl.so.1.0.0 ]]; then
     sudo cp -af --remove-destination /etc/maialinux-runtime/lib/libwayland-egl.so* /usr/lib/aarch64-linux-gnu/ 2>/dev/null || true
     sudo ldconfig 2>/dev/null || true
 fi
+TARGET_USER="ark"
+TARGET_UID="$(id -u "$TARGET_USER" 2>/dev/null || echo 1000)"
+TARGET_GID="$(id -g "$TARGET_USER" 2>/dev/null || echo 1000)"
+
 if [[ -f /etc/maialinux-runtime/openbox-lxqt-rc.xml ]]; then
     sudo cp -f /etc/maialinux-runtime/openbox-lxqt-rc.xml /home/ark/.config/openbox/lxqt-rc.xml 2>/dev/null || true
-    sudo chown 1002:1002 /home/ark/.config/openbox/lxqt-rc.xml 2>/dev/null || true
+    sudo chown "${TARGET_UID}:${TARGET_GID}" /home/ark/.config/openbox/lxqt-rc.xml 2>/dev/null || true
 fi
 if [[ -f /etc/maialinux-runtime/pcmanfm-qt-settings.conf ]]; then
     sudo cp -f /etc/maialinux-runtime/pcmanfm-qt-settings.conf /home/ark/.config/pcmanfm-qt/lxqt/settings.conf 2>/dev/null || true
-    sudo chown 1002:1002 /home/ark/.config/pcmanfm-qt/lxqt/settings.conf 2>/dev/null || true
+    sudo chown "${TARGET_UID}:${TARGET_GID}" /home/ark/.config/pcmanfm-qt/lxqt/settings.conf 2>/dev/null || true
 fi
 
 if [[ -f /etc/maialinux-runtime/bin/hello-rg353v ]] && [[ ! -f /home/ark/projects/hello-c/hello-rg353v ]]; then
     sudo cp -f /etc/maialinux-runtime/bin/hello-rg353v /home/ark/projects/hello-c/hello-rg353v 2>/dev/null || true
     sudo cp -f /etc/maialinux-runtime/bin/sdl2-demo /home/ark/projects/hello-sdl2/sdl2-demo 2>/dev/null || true
-    sudo chown -R 1002:1002 /home/ark/projects 2>/dev/null || true
+    sudo chown -R "${TARGET_UID}:${TARGET_GID}" /home/ark/projects 2>/dev/null || true
 fi
 
 # 1. If invoked from SSH or systemd while EmulationStation is running standalone,

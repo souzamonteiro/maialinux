@@ -29,6 +29,7 @@ if [[ -z "${DISPLAY:-}" ]]; then
 fi
 
 export XAUTHORITY="${XAUTHORITY:-/home/ark/.Xauthority}"
+export MB_KBD_CONFIG="/home/ark/.matchbox/keyboard.xml"
 
 if pgrep -x "matchbox-keyboa" >/dev/null 2>&1 || pgrep -f "matchbox-keyboard" >/dev/null 2>&1; then
     pkill -f "matchbox-keyboard" >/dev/null 2>&1 || true

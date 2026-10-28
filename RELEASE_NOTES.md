@@ -1,3 +1,22 @@
+# MaiaLinux Release Notes
+
+## MaiaLinux v2.0.0 — Debian 13 (Trixie) & Linux 5.10 LTS for Anbernic RG353V
+
+**MaiaLinux v2.0.0** is the major generational upgrade of MaiaLinux for the **Anbernic RG353V** (Rockchip RK3566), built on top of **dArkOS (Debian 13 Trixie ARM64)** with the **Linux 5.10 LTS Kernel**.
+
+It retains 100% of the features and capabilities of MaiaLinux 1.0.0 while transitioning to a modern, supported distribution base with updated toolchains:
+
+### 🌟 What's New in v2.0.0:
+- **Base Upgrade**: Upgraded from Ubuntu 19.10 Eoan (EOL) to **Debian 13 (Trixie)** with continuous package updates.
+- **Kernel 5.10 LTS**: Updated from Linux 4.19.172 to **Linux 5.10 LTS** with Rockchip RK3566 optimizations.
+- **Root Filesystem**: Modern **btrfs** root filesystem with zstd compression.
+- **Desktop Environment**: **LXQt 2.1 (Qt 6)** with Openbox window manager, tailored for the 640×480 screen.
+- **Updated Toolchains**: **GCC 12 / 14**, **Python 3.13**, and modern SDL2/GTK3/Qt toolchains.
+- **GPU Driver**: Mali Bifrost G52 (g29p1 driver) with hardware-accelerated GLES / GBM.
+- **Direct EmulationStation Options Menu Integration**: Direct access to `Launch MaiaLinux (LXQt)` and `Switch Boot Mode` directly from the main Options menu as well as `Options -> Tools`.
+
+---
+
 # MaiaLinux v1.0.0 — Pocket Linux Desktop & Dev Environment for Anbernic RG353V
 
 **MaiaLinux v1.0.0** is the first official release of MaiaLinux for the **Anbernic RG353V** (Rockchip RK3566), built on top of **ArkOS 2.0 (Ubuntu 19.10 Eoan ARM64)**.

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # restore-sdcard-image.sh
 # Restores the MaiaLinux SD‑card image (compressed .xz) onto the physical SD card.
-# Usage: ./restore-sdcard-image.sh [path/to/MaiaLinux‑RG353V‑v1.0.0‑sdcard.img.xz]
+# Usage: ./restore-sdcard-image.sh [path/to/MaiaLinux‑RG353V‑v2.0.0‑sdcard.img.xz]
 # If no argument is given, the script looks for the latest .xz image under the distro folder.
 
 set -euo pipefail

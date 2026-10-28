@@ -131,3 +131,47 @@ cat distro/kernel-rg353v-4.19.172/bundle.meta
   ./scripts/host/fetch-upstream-assets.sh --refresh --arkos-url "https://<upstream>/ArkOS_RG353V_*.img.xz"
   ```
 - Vendor GPU/runtime blobs are device-specific compatibility artifacts and must be staged from a valid RG353V-compatible rootfs.
+
+## 9. MaiaLinux v1.1.0 Kernel 5.10 Track (dArkOS-Compatible)
+
+For MaiaLinux 1.1.0, we keep the same bundle model (`Image + rk3566.dtb + modules`) but build from a Rockchip/RG353V-compatible 5.10 source tree.
+
+### 9.1 Build from Local Kernel 5.10 Source (recommended)
+
+```bash
+make build-kernel5-bundle \
+  KERNEL5_SOURCE_DIR=/path/to/linux-rk356x-5.10
+```
+
+### 9.2 Build from dArkOS/other git source
+
+```bash
+./scripts/host/build-rg353v-kernel5-bundle.sh \
+  --kernel-repo-url "https://github.com/<org>/<repo>.git" \
+  --kernel-repo-ref "<branch-or-tag>"
+```
+
+The script auto-falls back across common RK3566 defconfigs if the requested one is unavailable.
+
+### 9.3 Kernel 5.10 Outputs
+
+- `distro/kernel-rg353v-5.10/Image`
+- `distro/kernel-rg353v-5.10/rk3566.dtb`
+- `distro/kernel-rg353v-5.10/modules-<release>.tar.xz`
+- `distro/kernel-rg353v-5.10/Image.meta`
+- `distro/kernel-rg353v-5.10/bundle.meta`
+
+### 9.4 Deploy Kernel 5.10 Bundle
+
+```bash
+make deploy-kernel5-bundle
+```
+
+### 9.5 Full Release Pipeline with Kernel 5.10
+
+```bash
+make build-release-kernel5 \
+  ARKOS_IMAGE_URL="https://<upstream>/ArkOS_RG353V_*.img.xz" \
+  ROOTFS=/media/$USER/root1 \
+  KERNEL5_SOURCE_DIR=/path/to/linux-rk356x-5.10
+```

@@ -11,12 +11,6 @@ export DEBIAN_FRONTEND=noninteractive
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TARGET_USER="ark"
-TARGET_UID="1002"
-TARGET_GID="1002"
-TARGET_HOME="/home/${TARGET_USER}"
-
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
@@ -25,6 +19,23 @@ NC='\033[0m'
 log_step() { echo -e "\n${BLUE}==> $1${NC}"; }
 log_info() { echo -e "${GREEN}[INFO]${NC} $1"; }
 log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TARGET_USER="ark"
+TARGET_UID="$(id -u "${TARGET_USER}" 2>/dev/null || echo 1000)"
+TARGET_GID="$(id -g "${TARGET_USER}" 2>/dev/null || echo 1000)"
+TARGET_HOME="/home/${TARGET_USER}"
+
+log_info "Using target user ${TARGET_USER} (uid=${TARGET_UID}, gid=${TARGET_GID})"
+
+BASE_ID=""
+BASE_CODENAME=""
+if [[ -f /etc/os-release ]]; then
+    # shellcheck disable=SC1091
+    . /etc/os-release
+    BASE_ID="${ID:-}"
+    BASE_CODENAME="${VERSION_CODENAME:-}"
+fi
 
 if [[ $EUID -ne 0 ]]; then
     echo "Error: install-on-device.sh must be run as root (use sudo)." >&2
@@ -42,22 +53,30 @@ if [[ -f /etc/dpkg/dpkg.cfg.d/excludes ]]; then
     mv /etc/dpkg/dpkg.cfg.d/excludes /opt/maialinux/dpkg-excludes.bak
 fi
 
-log_step "2/9 Configuring Ubuntu 19.10 (Eoan) old-releases APT repositories"
+log_step "2/9 Configuring base APT repositories"
 if [[ ! -f /etc/apt/sources.list.orig ]]; then
     cp -a /etc/apt/sources.list /etc/apt/sources.list.orig 2>/dev/null || true
 fi
 
-cat > /etc/apt/sources.list << 'EOF'
+if [[ "$BASE_ID" == "ubuntu" ]]; then
+    cat > /etc/apt/sources.list << 'EOF'
 deb http://old-releases.ubuntu.com/ubuntu/ eoan main restricted universe multiverse
 deb http://old-releases.ubuntu.com/ubuntu/ eoan-updates main restricted universe multiverse
 deb http://old-releases.ubuntu.com/ubuntu/ eoan-security main restricted universe multiverse
 EOF
+elif [[ "$BASE_ID" == "debian" ]]; then
+    DEBIAN_CODENAME="${BASE_CODENAME:-stable}"
+    cat > /etc/apt/sources.list << EOF
+deb http://deb.debian.org/debian ${DEBIAN_CODENAME} main contrib non-free non-free-firmware
+deb http://deb.debian.org/debian ${DEBIAN_CODENAME}-updates main contrib non-free non-free-firmware
+deb http://security.debian.org/debian-security ${DEBIAN_CODENAME}-security main contrib non-free non-free-firmware
+EOF
+else
+    log_warn "Unknown base distro (${BASE_ID:-unset}); keeping existing apt sources."
+fi
 
 cat > /etc/apt/apt.conf.d/99maialinux << 'EOF'
 Acquire::Retries "3";
-Acquire::AllowInsecureRepositories "true";
-Acquire::AllowDowngradeToInsecureRepositories "true";
-APT::Get::AllowUnauthenticated "true";
 APT::Install-Recommends "false";
 APT::Install-Suggests "false";
 Dpkg::Options {
@@ -75,7 +94,8 @@ if dpkg -s libmali-rk-bifrost-g31-rxp0-wayland-gbm >/dev/null 2>&1; then
     dpkg --remove --force-all libmali-rk-bifrost-g31-rxp0-wayland-gbm || true
 fi
 apt-get install -f -y
-apt-get install -y --reinstall libwayland-egl1 libwayland-client0 libwayland-cursor0 libwayland-server0 libwayland-dev
+apt-get install -y --reinstall libwayland-egl1 libwayland-client0 libwayland-cursor0 libwayland-server0 libwayland-dev || \
+    log_warn "Could not reinstall one or more wayland packages automatically; continuing with available base packages."
 
 log_step "4/9 Installing Xorg, LXQt, Virtual Keyboards, Geany IDE, and Dev Toolchains"
 PACKAGES=(

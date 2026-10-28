@@ -2,33 +2,35 @@
 
 ![MaiaLinux](<images/MaiaLinux_ Play_Explore_and_Customize.png>)
 
-**MaiaLinux** is a reproducible Linux desktop and software development distribution layer built on top of **ArkOS (Ubuntu 19.10 Eoan ARM64)** for the **Anbernic RG353V (Rockchip RK3566)** handheld gaming console.
+**MaiaLinux** is a reproducible Linux desktop and software development distribution layer built on top of **dArkOS (Debian 13 Trixie ARM64 + Linux Kernel 5.10.226)** for the **Anbernic RG353V (Rockchip RK3566)** handheld gaming console.
 
-It transforms the RG353V into a complete **pocket Linux computer** featuring **LXQt**, an **On-Screen Virtual Keyboard (Touchscreen + Gamepad)**, **Geany IDE**, **QTerminal**, and **full C/C++, Python 3, SDL2, GTK3, and Qt5 development toolchains**, while preserving **100% compatibility with EmulationStation, RetroArch, and Mali Bifrost G52 GPU hardware acceleration**.
+It transforms the RG353V into a complete **pocket Linux computer** featuring **LXQt**, an **On-Screen Virtual Keyboard with full programming symbols & numbers (Touchscreen + Gamepad)**, **Geany IDE**, **QTerminal**, and **full C/C++, Python 3, SDL2, GTK3, and Qt5 development toolchains**, while preserving **100% compatibility with EmulationStation, RetroArch, and Mali Bifrost G52 GPU hardware acceleration**.
 
-> 📄 See [**RELEASE_NOTES.md**](RELEASE_NOTES.md) for full details on the `v1.0.0` release artifacts.
+> 📄 See [**RELEASE_NOTES.md**](RELEASE_NOTES.md) for full details on the `v2.0.0` release artifacts.
+> 📚 See [**MAIALINUX_2.0_ARCHITECTURE_AND_BOOT.md**](docs/MAIALINUX_2.0_ARCHITECTURE_AND_BOOT.md) for architecture, boot chain, offline kernel logo generation, and maintenance.
 
 ---
 
 ## Key Features
 
 - **Dual-Mode Architecture (Gaming + Software Development)**:
-  - Boots into **EmulationStation** by default and lets you launch the **LXQt** desktop at any time from `Options -> Tools -> Launch-MaiaLinux-LXQt`.
+  - Boots into **EmulationStation** by default and lets you launch the **LXQt** desktop directly from the **Main Carousel** (`MaiaLinux Desktop`) or via `Options -> Tools -> Launch MaiaLinux (LXQt)`.
   - Includes `Switch-Boot-Mode.sh` (available in the `Tools` menu or via CLI) to toggle between booting into EmulationStation (`es`) or booting directly into the LXQt Desktop (`desktop`).
 - **Tailored for Both 640×480 (3.5" IPS 4:3) and 1920×1080 (HDMI 16:9)**:
-  - **Custom Bootloader, Kernel DRM & Plymouth Splash**: Packs `logo.bmp` and `logo_kernel.bmp` into the Rockchip `resource` partition (`resource.img` via `resource_tool`) and installs a resolution-aware **Plymouth** graphical boot theme (`4:3` and `16:9` auto-detection), plus MaiaLinux launch splash images (`/roms/launchimages/loading.jpg`).
+  - **Embedded Kernel DRM Boot Logo & Silent Boot**: Includes an embedded 640×480 224-color CLUT logo inside the Linux 5.10 kernel image, compiled via an offline standalone Python pipeline (`generate-custom-kernel-image.py`), coupled with a zero-noise boot mode (`loglevel=0 console=tty3 systemd.show_status=0`) before the Plymouth graphical boot theme smoothly takes over.
   - **LXQt & EmulationStation Wallpapers (`4:3` & `16:9` HDMI)**: Includes **MaiaLinux at Neon Twilight** wallpapers for both the built-in `640×480` display and `1920×1080` HDMI output, with automatic HDMI detection on desktop launch and one-click switching (`Wallpaper (4:3 / HDMI)` on the desktop or `Options -> Tools -> Switch-Wallpaper-4x3-HDMI` in EmulationStation).
   - **Compact 640×480 UI**: `24px` single bottom LXQt panel, crisp `8pt/9pt` typography, Catppuccin/Fusion dark theme, and maximized window geometry.
-- **Virtual Keyboard + Touchscreen + Physical Gamepad Controls (`gptokeyb`)**:
+- **Enhanced Virtual Keyboard for Programming + Gamepad & Touchscreen**:
   - **Touchscreen**: Native multi-touch support via `libinput` (tap to click and type on the on-screen keyboard).
-  - **Virtual Keyboard (`matchbox-keyboard` / `onboard`)**: Docked cleanly at the bottom of the screen (`640×160`, `y=296`) with no titlebar; open from the LXQt application menu/panel launcher.
-  - **Desktop Gamepad Mapping**:
+  - **Virtual Keyboard (`matchbox-keyboard`)**: Docked cleanly at the bottom of the screen (`640×180`, `y=280`) with 4 rows (50 keys), dedicated numeric row (`1-0`), arithmetic operators (`-`, `+`, `=`), and instant `?123` symbol toggle for programming keys (`[]`, `{}`, `<>`, `\`, `/`, `;`, `:`, `'`, `"`, `_`, `~`, '`', `!`, `@`, `#`, `$`, `%`, `^`, `&`, `*`).
+  - **Clean Power Management**: Pressing the physical Power button suspends immediately without triggering annoying screensaver dialogues.
+  - **Desktop Gamepad Mapping (`gptokeyb`)**:
     - **Left Analog Stick**: Mouse Cursor
     - **L1 / A Button**: Left Mouse Click
     - **R1 / B Button**: Right Mouse Click
     - **Terminal**: Open from panel icon or with `F10`
     - **D-Pad / Right Analog Stick**: Arrow Keys (navigate code and menus)
-    - **Start**: Enter | **X**: Backspace | **L2 / R2**: PageUp / PageDown
+    - **Start**: Enter | **X**: Backspace | **L2 / R2**: PageUp / PageDown | **Select / Y**: Toggle Virtual Keyboard
 - **Surgical Mali G52 GPU Preservation (`libmali-bifrost-g52-g2p0-gbm.so`) + Wayland-EGL GTK3 Fix**:
   - Automatically resolves the stock ArkOS `libmali-rk-bifrost-g31-rxp0-wayland-gbm` vs. `libwayland-egl1` package conflict, keeping `libMali.so`, `libEGL.so.1`, `libGLESv2.so.2`, and `libgbm.so.1` pointed to the Mali Bifrost G52 GBM driver for EmulationStation/RetroArch while providing Mesa's `libwayland-egl.so.1` so GTK3 applications (`Geany`, `Onboard`) run cleanly under X11.
   - Restores `/usr/include` development headers stripped from the stock ArkOS base image so native C/C++/SDL2 compilation works out of the box on the handheld.
@@ -49,20 +51,20 @@ The compiled, ready-to-install MaiaLinux distribution for the RG353V and the QEM
 
 Download the pre-built release artifacts from the [**GitHub Releases**](../../releases) page (or generate them locally into `distro/` with `make build-distro`):
 
-- **`MaiaLinux-RG353V-v1.0.0-sdcard.img.xz`** — Flashable microSD Card Image for the Anbernic RG353V
-- **`MaiaLinux-RG353V-v1.0.0-qemu.qcow2`** — Compressed ARM64 QEMU Image for testing on a PC
+- **`MaiaLinux-RG353V-v2.0.0-sdcard.img.xz`** — Flashable microSD Card Image for the Anbernic RG353V
+- **`MaiaLinux-RG353V-v2.0.0-qemu.qcow2`** — Compressed ARM64 QEMU Image for testing on a PC
 
 ### 1. Flashing to a microSD Card (Anbernic RG353V)
 
 1. *(Optional)* Verify the SHA-256 checksum:
    ```bash
-   sha256sum -c MaiaLinux-RG353V-v1.0.0-sdcard.img.xz.sha256
+   sha256sum -c MaiaLinux-RG353V-v2.0.0-sdcard.img.xz.sha256
    ```
-2. Flash **`MaiaLinux-RG353V-v1.0.0-sdcard.img.xz`** to a microSD card (**32GB or larger**, Samsung/SanDisk recommended):
-   - **GUI (Windows / macOS / Linux)**: Open [**BalenaEtcher**](https://etcher.balena.io/) or [**Raspberry Pi Imager**](https://www.raspberrypi.com/software/), select `MaiaLinux-RG353V-v1.0.0-sdcard.img.xz` directly (no need to extract first), choose your microSD card, and click **Flash**.
+2. Flash **`MaiaLinux-RG353V-v2.0.0-sdcard.img.xz`** to a microSD card (**32GB or larger**, Samsung/SanDisk recommended):
+   - **GUI (Windows / macOS / Linux)**: Open [**BalenaEtcher**](https://etcher.balena.io/) or [**Raspberry Pi Imager**](https://www.raspberrypi.com/software/), select `MaiaLinux-RG353V-v2.0.0-sdcard.img.xz` directly (no need to extract first), choose your microSD card, and click **Flash**.
    - **Linux CLI**:
      ```bash
-     xzcat MaiaLinux-RG353V-v1.0.0-sdcard.img.xz | sudo dd of=/dev/sdX bs=4M status=progress conv=fsync
+     xzcat MaiaLinux-RG353V-v2.0.0-sdcard.img.xz | sudo dd of=/dev/sdX bs=4M status=progress conv=fsync
      sync
      ```
      *(Replace `/dev/sdX` or `/dev/mmcblkX` with your microSD card block device).*
@@ -84,7 +86,7 @@ Use the graphical ARM64 desktop simulator on an x86_64 Linux PC as your logged-i
   # Using a mounted SD card or extracted rootfs:
   make test-qemu
 
-  # Or directly from distro/MaiaLinux-RG353V-v1.0.0-qemu.qcow2:
+  # Or directly from distro/MaiaLinux-RG353V-v2.0.0-qemu.qcow2:
   ./scripts/host/run-qemu-image.sh --gui
   ```
 Full-system `--vm` is experimental and requires an explicit `KERNEL_IMG` built for
@@ -106,7 +108,7 @@ space. Inspect `lsblk` and `df -h /` separately before allocating swap.
 ```bash
 make build-distro
 ```
-Generates `distro/MaiaLinux-RG353V-v1.0.0-sdcard.img.xz`, `distro/MaiaLinux-RG353V-v1.0.0-qemu.qcow2`, and their `.sha256` checksum files entirely in user-space.
+Generates `distro/MaiaLinux-RG353V-v2.0.0-sdcard.img.xz`, `distro/MaiaLinux-RG353V-v2.0.0-qemu.qcow2`, and their `.sha256` checksum files entirely in user-space.
 
 ### Reproducible Release Automation (Recommended)
 
@@ -151,6 +153,29 @@ The build script writes:
 - `distro/kernel-rg353v-4.19.172/Image`
 - `distro/kernel-rg353v-4.19.172/rk3566.dtb`
 - `distro/kernel-rg353v-4.19.172/modules-<kernel_release>.tar.xz`
+- metadata files (`Image.meta`, `bundle.meta`) for traceability.
+
+### Option 4B: MaiaLinux 1.1.0 Kernel 5.10 Track (dArkOS-oriented)
+
+Use this flow to start MaiaLinux 1.1.0 with a 5.10 kernel bundle while preserving the same MaiaLinux bundle/deploy model.
+
+```bash
+# Build kernel 5.10 bundle (local source tree)
+make build-kernel5-bundle KERNEL5_SOURCE_DIR=/path/to/linux-rk356x-5.10
+
+# Or build from repository directly
+./scripts/host/build-rg353v-kernel5-bundle.sh \
+  --kernel-repo-url "https://github.com/<org>/<repo>.git" \
+  --kernel-repo-ref "<branch-or-tag>"
+
+# Deploy bundle with rollback-safe installer
+make deploy-kernel5-bundle
+```
+
+The kernel 5.10 bundle outputs are written under:
+- `distro/kernel-rg353v-5.10/Image`
+- `distro/kernel-rg353v-5.10/rk3566.dtb`
+- `distro/kernel-rg353v-5.10/modules-<kernel_release>.tar.xz`
 - metadata files (`Image.meta`, `bundle.meta`) for traceability.
 
 ### Option 5: Build RK3566 Kernel Image with Custom Early Boot Logo (Legacy Image-Only Flow)
@@ -245,7 +270,7 @@ This updates only `logo.bmp`, `logo_kernel.bmp`, and `loading.jpg` on mounted me
 maialinux/
 ├── Makefile                        # Automation: build-distro, test-qemu, run-qemu-vm, install-sdcard
 ├── README.md                       # Documentation & User Guide (English)
-├── RELEASE_NOTES.md                # Release Notes for GitHub Releases (v1.0.0)
+├── RELEASE_NOTES.md                # Release Notes for GitHub Releases (v2.0.0)
 ├── install-on-device.sh            # Idempotent installer executed inside the ARM64 rootfs
 ├── distro/                         # (gitignored) Built SD Card (.img.xz) & QEMU (.qcow2) release images
 ├── images/                         # Official MaiaLinux artwork (4:3 640x480 and 16:9 1920x1080)

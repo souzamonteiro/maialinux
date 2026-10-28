@@ -29,22 +29,36 @@ backup_mali() {
 setup_arch_mali_links() {
     local libdir="$1"
     local backup_sub="$2"
-    local blob="libmali-bifrost-g52-g2p0-gbm.so"
+    local preferred_blob="libmali-bifrost-g52-g2p0-gbm.so"
+    local fallback_blob="libmali-bifrost-g52-g29p1.so"
+    local blob=""
 
     if [[ ! -d "$libdir" ]]; then
         return 0
     fi
 
-    # Restore blob from backup if missing or truncated
-    if [[ ! -f "$libdir/$blob" ]] || [[ $(stat -c%s "$libdir/$blob" 2>/dev/null || echo 0) -lt 1000000 ]]; then
-        if [[ -f "$BACKUP_DIR/$backup_sub/$blob" ]]; then
-            cp -af --remove-destination "$BACKUP_DIR/$backup_sub/$blob" "$libdir/$blob"
-            chmod 755 "$libdir/$blob"
-            log_info "Restored $libdir/$blob from backup"
-        else
-            log_warn "Blob $libdir/$blob not found in backup!"
-            return 0
-        fi
+    # Prefer g2p0 blob. If it is unavailable but g29p1 exists, use g29p1 as
+    # the real blob and create g2p0 compatibility alias for health checks/tools.
+    if [[ -f "$libdir/$preferred_blob" ]] && (( $(stat -c%s "$libdir/$preferred_blob" 2>/dev/null || echo 0) > 1000000 )); then
+        blob="$preferred_blob"
+    elif [[ -f "$libdir/$fallback_blob" ]] && (( $(stat -c%s "$libdir/$fallback_blob" 2>/dev/null || echo 0) > 1000000 )); then
+        blob="$fallback_blob"
+        ln -sf "$fallback_blob" "$libdir/$preferred_blob"
+        log_info "Created compatibility alias $preferred_blob -> $fallback_blob in $libdir"
+    elif [[ -f "$BACKUP_DIR/$backup_sub/$preferred_blob" ]]; then
+        cp -af --remove-destination "$BACKUP_DIR/$backup_sub/$preferred_blob" "$libdir/$preferred_blob"
+        chmod 755 "$libdir/$preferred_blob"
+        blob="$preferred_blob"
+        log_info "Restored $libdir/$preferred_blob from backup"
+    elif [[ -f "$BACKUP_DIR/$backup_sub/$fallback_blob" ]]; then
+        cp -af --remove-destination "$BACKUP_DIR/$backup_sub/$fallback_blob" "$libdir/$fallback_blob"
+        chmod 755 "$libdir/$fallback_blob"
+        ln -sf "$fallback_blob" "$libdir/$preferred_blob"
+        blob="$fallback_blob"
+        log_info "Restored $libdir/$fallback_blob from backup and linked $preferred_blob"
+    else
+        log_warn "No suitable Mali blob found in $libdir or backup ($preferred_blob/$fallback_blob)!"
+        return 0
     fi
 
     # Point libMali.so relatively to the Bifrost G52 GBM blob

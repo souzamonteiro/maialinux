@@ -24,7 +24,7 @@ if [[ -z "$QEMU_BIN" ]]; then
     exit 1
 fi
 # Check the actual UID mapping before opening a graphical window.
-if ! USERNS_ERROR=$(bwrap --unshare-user --uid 1002 --gid 1002 --ro-bind / / -- /usr/bin/true 2>&1); then
+if ! USERNS_ERROR=$(bwrap --unshare-user --uid 1000 --gid 1000 --ro-bind / / -- /usr/bin/true 2>&1); then
     echo "$USERNS_ERROR" >&2
     echo "The host blocked Bubblewrap user namespaces. Check the AppArmor/kernel log." >&2
     echo "Optional Ubuntu administrator setup: $(dirname "${BASH_SOURCE[0]}")/setup-qemu-userns.sh" >&2
@@ -124,9 +124,15 @@ if ! DISPLAY="$TEST_DISPLAY" xdpyinfo >/dev/null 2>&1; then
     exit 1
 fi
 
-# Run the entire ARM64 LXQt session inside Bubblewrap chroot mapped to user ark (UID 1002)
+# Resolve user ark UID/GID dynamically from guest /etc/passwd
+TARGET_UID="$(grep -E '^ark:' "$ROOTFS/etc/passwd" 2>/dev/null | cut -d: -f3 || true)"
+[[ -n "$TARGET_UID" ]] || TARGET_UID="1000"
+TARGET_GID="$(grep -E '^ark:' "$ROOTFS/etc/passwd" 2>/dev/null | cut -d: -f4 || true)"
+[[ -n "$TARGET_GID" ]] || TARGET_GID="1000"
+
+# Run the entire ARM64 LXQt session inside Bubblewrap chroot mapped to user ark
 bwrap \
-    --unshare-user --uid 1002 --gid 1002 \
+    --unshare-user --uid "$TARGET_UID" --gid "$TARGET_GID" \
     --die-with-parent --unshare-pid \
     --ro-bind "$ROOTFS" / \
     --bind /tmp /tmp \
@@ -153,18 +159,8 @@ bwrap \
     /tmp/qemu-aarch64-static /bin/bash -c '
         mkdir -p "$XDG_RUNTIME_DIR" && chmod 700 "$XDG_RUNTIME_DIR"
 
-        # Start D-Bus session if the guest image provides it; some slim images use dbus-run-session instead.
+        # Start D-Bus session if the guest image provides it
         set -e
-        DBUS_ENV=""
-        if command -v dbus-launch >/dev/null 2>&1; then
-            DBUS_ENV=$(dbus-launch --sh-syntax 2>/dev/null || true)
-        elif command -v dbus-run-session >/dev/null 2>&1; then
-            DBUS_ENV=$(dbus-run-session --sh-syntax 2>/dev/null || true)
-        fi
-        if [[ -n "$DBUS_ENV" ]]; then
-            eval "$DBUS_ENV"
-        fi
-        # This signal is confined to the private PID namespace created above.
         trap "kill -TERM -1 2>/dev/null || true" EXIT
 
         if ! command -v startlxqt >/dev/null 2>&1; then
@@ -172,16 +168,20 @@ bwrap \
             exit 1
         fi
 
-        # Use the same LXQt entry point as the handheld launcher.
-        startlxqt >"$MAIALINUX_LOG_DIR/lxqt-session.log" 2>&1 &
+        # Use dbus-run-session on Debian 13 for clean D-Bus lifecycle
+        if command -v dbus-run-session >/dev/null 2>&1; then
+            dbus-run-session startlxqt >"$MAIALINUX_LOG_DIR/lxqt-session.log" 2>&1 &
+        else
+            startlxqt >"$MAIALINUX_LOG_DIR/lxqt-session.log" 2>&1 &
+        fi
         SESSION_PID=$!
 
-        # Slow SD cards need a real readiness check, not only fixed sleeps.
+        # Check readiness of window manager and LXQt panel
         READY=false
         for attempt in {1..120}; do
-            kill -0 "$SESSION_PID" || exit 1
+            kill -0 "$SESSION_PID" 2>/dev/null || exit 1
             if xprop -root _NET_SUPPORTING_WM_CHECK 2>/dev/null | grep -q "window id" &&
-               xwininfo -root -tree 2>/dev/null | grep -Eq "640x24[+]0[+]456"; then
+               xwininfo -root -tree 2>/dev/null | grep -Eq "640x24"; then
                 READY=true
                 break
             fi

@@ -2,8 +2,8 @@
 """
 build-distro-releases.py
 Builds the two official MaiaLinux distribution artifacts in distro/:
-  1) distro/MaiaLinux-RG353V-v1.0.0-sdcard.img.xz  (Flashable GPT SD Card image for Anbernic RG353V)
-  2) distro/MaiaLinux-RG353V-v1.0.0-qemu.qcow2     (Compressed QEMU ARM64 image + runner script)
+    1) distro/MaiaLinux-RG353V-v2.0.0-sdcard.img.xz  (Flashable GPT SD Card image for Anbernic RG353V)
+    2) distro/MaiaLinux-RG353V-v2.0.0-qemu.qcow2     (Compressed QEMU ARM64 image + runner script)
 
 Works entirely in user-space (no root/sudo required) using e2fsprogs (debugfs, resize2fs, e2fsck),
 sfdisk, mtools, qemu-img, and xz.
@@ -20,13 +20,40 @@ import tarfile
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 DISTRO_DIR = os.path.join(REPO_ROOT, "distro")
-DEFAULT_BASE_IMG = os.path.join(REPO_ROOT, ".cache", "upstream", "ArkOS_RG353V_v2.0_02092025.img")
+DEFAULT_BASE_IMG_CANDIDATES = (
+    os.path.join(REPO_ROOT, ".cache", "upstream", "dArkOS_RG353V_v5.10_Debian13.img"),
+    os.path.join(REPO_ROOT, ".cache", "upstream", "dArkOS_RG353V_v5.10_Debian13.img.xz.extracted"),
+    os.path.join(REPO_ROOT, ".cache", "upstream", "ArkOS_RG353V_v2.0_02092025.img"),
+)
+
+
+def default_base_img_path() -> str:
+    for candidate in DEFAULT_BASE_IMG_CANDIDATES:
+        if os.path.isfile(candidate):
+            return candidate
+    return DEFAULT_BASE_IMG_CANDIDATES[-1]
+
+
 BASE_IMG = os.environ.get(
     "BASE_IMG",
-    DEFAULT_BASE_IMG,
+    default_base_img_path(),
 )
-SDCARD_ROOT = os.environ.get("SDCARD_ROOT", "/media/roberto/root")
-SDCARD_BOOT = os.environ.get("SDCARD_BOOT", "/media/roberto/BOOT")
+def default_sdcard_root_path() -> str:
+    for candidate in ("/media/roberto/ROOTFS", "/media/roberto/rootfs", "/media/roberto/root", "/media/roberto/ROOT"):
+        if os.path.isdir(candidate):
+            return candidate
+    return "/media/roberto/ROOTFS"
+
+
+def default_sdcard_boot_path() -> str:
+    for candidate in ("/media/roberto/BOOT", "/media/roberto/boot", "/media/roberto/BOOT1", "/media/roberto/boot1"):
+        if os.path.isdir(candidate):
+            return candidate
+    return "/media/roberto/BOOT"
+
+
+SDCARD_ROOT = os.environ.get("SDCARD_ROOT", default_sdcard_root_path())
+SDCARD_BOOT = os.environ.get("SDCARD_BOOT", default_sdcard_boot_path())
 STAGING_DIR = os.environ.get(
     "STAGING_DIR", os.path.join(REPO_ROOT, ".cache", "distro-build")
 )
@@ -34,9 +61,17 @@ VENDOR_MALI_AARCH64 = os.path.join(REPO_ROOT, "vendor", "mali", "aarch64", "libm
 VENDOR_WAYLAND_EGL = os.path.join(REPO_ROOT, "vendor", "runtime", "lib", "libwayland-egl.so.1.0.0")
 KERNEL_BUNDLE_DIR = os.environ.get("KERNEL_BUNDLE_DIR", os.path.join(DISTRO_DIR, "kernel-rg353v-4.19.172"))
 KERNEL_IMAGE = os.environ.get("KERNEL_IMAGE", os.path.join(KERNEL_BUNDLE_DIR, "Image"))
-KERNEL_DTB = os.environ.get("KERNEL_DTB", os.path.join(KERNEL_BUNDLE_DIR, "rk3566.dtb"))
+if os.environ.get("KERNEL_DTB"):
+    KERNEL_DTB = os.environ["KERNEL_DTB"]
+else:
+    for candidate in (os.path.join(KERNEL_BUNDLE_DIR, "rk3566-353v.dtb"), os.path.join(KERNEL_BUNDLE_DIR, "rk3566.dtb")):
+        if os.path.isfile(candidate):
+            KERNEL_DTB = candidate
+            break
+    else:
+        KERNEL_DTB = os.path.join(KERNEL_BUNDLE_DIR, "rk3566.dtb")
 
-VERSION = "v1.0.0"
+VERSION = "v2.0.0"
 SDCARD_XZ_NAME = f"MaiaLinux-RG353V-{VERSION}-sdcard.img.xz"
 QEMU_QCOW2_NAME = f"MaiaLinux-RG353V-{VERSION}-qemu.qcow2"
 
@@ -151,12 +186,14 @@ def build_part3_boot(part3_img: str) -> None:
             subprocess.run([mcopy, "-o", "-i", part3_img, src, dst], check=True)
 
     # Prefer reproducible kernel bundle artifacts when available.
-    for target in ("::/Image", "::/rk3566.dtb", "::/uInitrd"):
+    for target in ("::/Image", "::/rk3566-353v.dtb", "::/rk3566.dtb", "::/uInitrd"):
         subprocess.run([mdel, "-i", part3_img, target], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
     if os.path.isfile(KERNEL_IMAGE):
         subprocess.run([mcopy, "-o", "-i", part3_img, KERNEL_IMAGE, "::/Image"], check=True)
     if os.path.isfile(KERNEL_DTB):
-        subprocess.run([mcopy, "-o", "-i", part3_img, KERNEL_DTB, "::/rk3566.dtb"], check=True)
+        subprocess.run([mcopy, "-o", "-i", part3_img, KERNEL_DTB, "::/rk3566-353v.dtb"], check=True)
+        if os.path.basename(KERNEL_DTB) != "rk3566-353v.dtb":
+            subprocess.run([mcopy, "-o", "-i", part3_img, KERNEL_DTB, "::/rk3566.dtb"], check=True)
 
 
 def build_part4_rootfs(part4_img: str, extra_sectors: int) -> int:
@@ -493,7 +530,7 @@ last-lba: {last_lba}
             f.write(bf.read(part5_sectors * 512))
         f.write(gpt_backup)
 
-    # Stream-compress header + part4_img + footer directly into distro/MaiaLinux-RG353V-v1.0.0-sdcard.img.xz
+    # Stream-compress header + part4_img + footer directly into distro/MaiaLinux-RG353V-v2.0.0-sdcard.img.xz
     sdcard_xz_path = os.path.join(DISTRO_DIR, SDCARD_XZ_NAME)
     log(f"Stream-compressing full GPT SD Card image -> {sdcard_xz_path} (xz -T0 -1)...")
     with open(sdcard_xz_path + ".tmp", "wb") as output:
