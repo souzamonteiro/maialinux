@@ -1,5 +1,17 @@
 # MaiaLinux Release Notes
 
+## MaiaLinux v2.0.1 — RK3566 Clock Stability Fix & Device Tree Tooling
+
+**MaiaLinux v2.0.1** is a stability and hardware compatibility release for the **Anbernic RG353V** (Rockchip RK3566), addressing boot freeze issues on sensitive silicon revisions ([ArkOS Issue #837](https://github.com/christianhaitian/arkos/issues/837)) and introducing dedicated Device Tree Source (DTS) management tooling.
+
+### 🌟 What's New in v2.0.1:
+- **RK3566 CPU Clock Stability (ArkOS Issue #837)**: Capped maximum CPU Operating Performance Point (OPP) from 1.992 GHz down to **1.416 GHz (1416 MHz)**, resolving boot lockups and freeze crashes on lower-tier RK3566 silicon revisions.
+- **Dedicated Device Tree Sources (`dts/`)**: Added editable [`dts/rk3566-OC.dts`](dts/rk3566-OC.dts) and reference [`dts/rk3566-original.dts`](dts/rk3566-original.dts) directly in the repository with comprehensive documentation.
+- **Host Device Tree Tooling (`scripts/host/`)**: Added [`scripts/host/rk3566-dtb-tool.sh`](scripts/host/rk3566-dtb-tool.sh) along with `fix-rk3566-boot-clock.sh`, `compile-rk3566-dts.sh`, and `decompile-rk3566-dtb.sh` for easy one-command clock management, compilation, and SD card deployment.
+- **Dual DTB Deployment**: Deploys both `rk3566-353v.dtb` and `rk3566-OC.dtb` to the `BOOT` partition with automatic timestamped and `.orig` backups.
+
+---
+
 ## MaiaLinux v2.0.0 — Debian 13 (Trixie) & Linux 5.10 LTS for Anbernic RG353V
 
 **MaiaLinux v2.0.0** is the major generational upgrade of MaiaLinux for the **Anbernic RG353V** (Rockchip RK3566), built on top of **dArkOS (Debian 13 Trixie ARM64)** with the **Linux 5.10 LTS Kernel**.

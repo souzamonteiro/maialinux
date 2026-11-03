@@ -6,13 +6,16 @@
 
 It transforms the RG353V into a complete **pocket Linux computer** featuring **LXQt**, an **On-Screen Virtual Keyboard with full programming symbols & numbers (Touchscreen + Gamepad)**, **Geany IDE**, **QTerminal**, and **full C/C++, Python 3, SDL2, GTK3, and Qt5 development toolchains**, while preserving **100% compatibility with EmulationStation, RetroArch, and Mali Bifrost G52 GPU hardware acceleration**.
 
-> 📄 See [**RELEASE_NOTES.md**](RELEASE_NOTES.md) for full details on the `v2.0.0` release artifacts.
+> 📄 See [**RELEASE_NOTES.md**](RELEASE_NOTES.md) for full details on the `v2.0.1` release artifacts.
 > 📚 See [**MAIALINUX_2.0_ARCHITECTURE_AND_BOOT.md**](docs/MAIALINUX_2.0_ARCHITECTURE_AND_BOOT.md) for architecture, boot chain, offline kernel logo generation, and maintenance.
 
 ---
 
 ## Key Features
 
+- **Rockchip RK3566 Clock Stability & DTS Management (ArkOS Issue #837)**:
+  - Fixes boot loops and freezing on Anbernic RG353V / RG353M hardware revisions by downclocking maximum CPU frequency to a stable **1.416 GHz** (removing unstable 1.6GHz/1.8GHz/2.0GHz OPP states).
+  - Includes human-readable Device Tree Sources directly in `dts/` (`rk3566-OC.dts` and `rk3566-original.dts`) and host tooling in `scripts/host/` (`rk3566-dtb-tool.sh`, `fix-rk3566-boot-clock.sh`, `compile-rk3566-dts.sh`, and `decompile-rk3566-dtb.sh`).
 - **Dual-Mode Architecture (Gaming + Software Development)**:
   - Boots into **EmulationStation** by default and lets you launch the **LXQt** desktop directly from the **Main Carousel** (`MaiaLinux Desktop`) or via `Options -> Tools -> Launch MaiaLinux (LXQt)`.
   - Includes `Switch-Boot-Mode.sh` (available in the `Tools` menu or via CLI) to toggle between booting into EmulationStation (`es`) or booting directly into the LXQt Desktop (`desktop`).
@@ -51,20 +54,20 @@ The compiled, ready-to-install MaiaLinux distribution for the RG353V and the QEM
 
 Download the pre-built release artifacts from the [**GitHub Releases**](../../releases) page (or generate them locally into `distro/` with `make build-distro`):
 
-- **`MaiaLinux-RG353V-v2.0.0-sdcard.img.xz`** — Flashable microSD Card Image for the Anbernic RG353V
-- **`MaiaLinux-RG353V-v2.0.0-qemu.qcow2`** — Compressed ARM64 QEMU Image for testing on a PC
+- **`MaiaLinux-RG353V-v2.0.1-sdcard.img.xz`** — Flashable microSD Card Image for the Anbernic RG353V
+- **`MaiaLinux-RG353V-v2.0.1-qemu.qcow2`** — Compressed ARM64 QEMU Image for testing on a PC
 
 ### 1. Flashing to a microSD Card (Anbernic RG353V)
 
 1. *(Optional)* Verify the SHA-256 checksum:
    ```bash
-   sha256sum -c MaiaLinux-RG353V-v2.0.0-sdcard.img.xz.sha256
+   sha256sum -c MaiaLinux-RG353V-v2.0.1-sdcard.img.xz.sha256
    ```
-2. Flash **`MaiaLinux-RG353V-v2.0.0-sdcard.img.xz`** to a microSD card (**32GB or larger**, Samsung/SanDisk recommended):
-   - **GUI (Windows / macOS / Linux)**: Open [**BalenaEtcher**](https://etcher.balena.io/) or [**Raspberry Pi Imager**](https://www.raspberrypi.com/software/), select `MaiaLinux-RG353V-v2.0.0-sdcard.img.xz` directly (no need to extract first), choose your microSD card, and click **Flash**.
+2. Flash **`MaiaLinux-RG353V-v2.0.1-sdcard.img.xz`** to a microSD card (**32GB or larger**, Samsung/SanDisk recommended):
+   - **GUI (Windows / macOS / Linux)**: Open [**BalenaEtcher**](https://etcher.balena.io/) or [**Raspberry Pi Imager**](https://www.raspberrypi.com/software/), select `MaiaLinux-RG353V-v2.0.1-sdcard.img.xz` directly (no need to extract first), choose your microSD card, and click **Flash**.
    - **Linux CLI**:
      ```bash
-     xzcat MaiaLinux-RG353V-v2.0.0-sdcard.img.xz | sudo dd of=/dev/sdX bs=4M status=progress conv=fsync
+     xzcat MaiaLinux-RG353V-v2.0.1-sdcard.img.xz | sudo dd of=/dev/sdX bs=4M status=progress conv=fsync
      sync
      ```
      *(Replace `/dev/sdX` or `/dev/mmcblkX` with your microSD card block device).*
@@ -86,7 +89,7 @@ Use the graphical ARM64 desktop simulator on an x86_64 Linux PC as your logged-i
   # Using a mounted SD card or extracted rootfs:
   make test-qemu
 
-  # Or directly from distro/MaiaLinux-RG353V-v2.0.0-qemu.qcow2:
+  # Or directly from distro/MaiaLinux-RG353V-v2.0.1-qemu.qcow2:
   ./scripts/host/run-qemu-image.sh --gui
   ```
 Full-system `--vm` is experimental and requires an explicit `KERNEL_IMG` built for
@@ -108,7 +111,7 @@ space. Inspect `lsblk` and `df -h /` separately before allocating swap.
 ```bash
 make build-distro
 ```
-Generates `distro/MaiaLinux-RG353V-v2.0.0-sdcard.img.xz`, `distro/MaiaLinux-RG353V-v2.0.0-qemu.qcow2`, and their `.sha256` checksum files entirely in user-space.
+Generates `distro/MaiaLinux-RG353V-v2.0.1-sdcard.img.xz`, `distro/MaiaLinux-RG353V-v2.0.1-qemu.qcow2`, and their `.sha256` checksum files entirely in user-space.
 
 ### Reproducible Release Automation (Recommended)
 
@@ -270,9 +273,13 @@ This updates only `logo.bmp`, `logo_kernel.bmp`, and `loading.jpg` on mounted me
 maialinux/
 ├── Makefile                        # Automation: build-distro, test-qemu, run-qemu-vm, install-sdcard
 ├── README.md                       # Documentation & User Guide (English)
-├── RELEASE_NOTES.md                # Release Notes for GitHub Releases (v2.0.0)
+├── RELEASE_NOTES.md                # Release Notes for GitHub Releases (v2.0.1)
 ├── install-on-device.sh            # Idempotent installer executed inside the ARM64 rootfs
 ├── distro/                         # (gitignored) Built SD Card (.img.xz) & QEMU (.qcow2) release images
+├── dts/                            # Device Tree Sources & RK3566 1.416 GHz stability clock patch
+│   ├── rk3566-OC.dts               # Editable DTS with safe OPP table (capped at 1.416 GHz)
+│   ├── rk3566-original.dts         # Original reference DTS decompiled from vendor DTB
+│   └── README.md                   # Clock stability & Device Tree Compiler (DTC) guide
 ├── images/                         # Official MaiaLinux artwork (4:3 640x480 and 16:9 1920x1080)
 ├── config/
 │   ├── boot/                       # Rockchip resource.img, U-Boot/Kernel BMP logos & launch splash
@@ -287,7 +294,7 @@ maialinux/
 │   ├── desktop-entries/            # Application menu launchers
 │   └── systemd/                    # maialinux-desktop.service systemd unit
 ├── scripts/
-│   ├── host/                       # Host PC scripts (build-distro-releases.py, run-qemu-image.sh, test-qemu-desktop.sh)
+│   ├── host/                       # Host PC scripts (rk3566-dtb-tool.sh, build-distro-releases.py, run-qemu-image.sh)
 │   └── target/                     # Target scripts installed on RG353V (/usr/local/bin & /roms/tools)
 └── examples/                       # Starter projects (C, SDL2, Python Tkinter, Pygame)
 ```

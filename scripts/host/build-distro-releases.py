@@ -71,7 +71,7 @@ else:
     else:
         KERNEL_DTB = os.path.join(KERNEL_BUNDLE_DIR, "rk3566.dtb")
 
-VERSION = "v2.0.0"
+VERSION = "v2.0.1"
 SDCARD_XZ_NAME = f"MaiaLinux-RG353V-{VERSION}-sdcard.img.xz"
 QEMU_QCOW2_NAME = f"MaiaLinux-RG353V-{VERSION}-qemu.qcow2"
 

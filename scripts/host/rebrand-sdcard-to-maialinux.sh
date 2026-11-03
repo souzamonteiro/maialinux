@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # rebrand-sdcard-to-maialinux.sh
-# Applies all MaiaLinux 2.0.0 configurations to the mounted SD card:
+# Applies all MaiaLinux 2.0.1 configurations to the mounted SD card:
 # 1. Main carousel entry for LXQt Desktop in EmulationStation
 # 2. EmulationStation wallpaper and theme restoration (es-theme-nes-box)
-# 3. System-wide upgrade of references from 1.0.0 to 2.0.0
+# 3. System-wide upgrade of references from 1.0.0 to 2.0.1
 # 4. Replacement of user-facing dArkOS / ArkOS references with MaiaLinux
 # 5. U-Boot and Kernel DRM boot logo/wallpaper installation
 
@@ -48,7 +48,7 @@ cat > "$EASYROMS_DIR/maialinux/gamelist.xml" << 'EOF'
 	<game>
 		<path>./Launch MaiaLinux (LXQt).sh</path>
 		<name>Launch MaiaLinux (LXQt Desktop)</name>
-		<desc>Start the MaiaLinux 2.0.0 LXQt desktop environment with development tools (Geany IDE, QTerminal, Python 3, C/C++ compiler, Mali GPU acceleration).</desc>
+		<desc>Start the MaiaLinux 2.0.1 LXQt desktop environment with development tools (Geany IDE, QTerminal, Python 3, C/C++ compiler, Mali GPU acceleration).</desc>
 		<image>./maialinux.png</image>
 		<releasedate>20261027T000000</releasedate>
 		<developer>MaiaLinux Project</developer>
@@ -152,11 +152,11 @@ with open(cfg, 'w', encoding='utf-8') as f:
 print('Verified es_settings.cfg theme and color')
 "
 
-echo "=== 3. Updating System Version to MaiaLinux 2.0.0 ==="
+echo "=== 3. Updating System Version to MaiaLinux 2.0.1 ==="
 # Desktop shortcuts
 for df in "$ROOTFS_DIR/home/ark/Desktop"/*.desktop; do
     if [[ -f "$df" ]]; then
-        sed -i 's/MaiaLinux 1\.0\.0/MaiaLinux 2.0.0/g' "$df"
+        sed -i 's/MaiaLinux 1\.0\.0/MaiaLinux 2.0.1/g' "$df"
     fi
 done
 
@@ -181,7 +181,7 @@ sed -i 's/dArkOS/MaiaLinux/g' "$ROOTFS_DIR/opt/system/Network Info.sh" 2>/dev/nu
 sed -i 's/dArkOS/MaiaLinux/g' "$ROOTFS_DIR/opt/system/System Info.sh" 2>/dev/null || true
 
 # 4c. expandtoexfat.sh on FAT partition
-sed -i 's/Firstboot setup of dArkOS/Firstboot setup of MaiaLinux 2.0.0/g; s/load dArkOS/load MaiaLinux 2.0.0/g' "$FAT_DIR/expandtoexfat.sh" 2>/dev/null || true
+sed -i 's/Firstboot setup of dArkOS/Firstboot setup of MaiaLinux 2.0.1/g; s/load dArkOS/load MaiaLinux 2.0.1/g' "$FAT_DIR/expandtoexfat.sh" 2>/dev/null || true
 
 # 4d. BaRT Recovery Menu inside emulationstation.sh
 sed -i 's/Backup dArkOS Settings/Backup MaiaLinux Settings/g; s/Restore dArkOS Settings/Restore MaiaLinux Settings/g' "$ROOTFS_DIR/usr/bin/emulationstation/emulationstation.sh"
@@ -199,20 +199,20 @@ with open(es_sh, 'r', encoding='utf-8') as f:
     text = f.read()
 
 # Replace or insert rebranding hook
-hook_header = '# MaiaLinux 2.0.0 One-time Finalization Hook'
-new_hook = '''# MaiaLinux 2.0.0 One-time Finalization Hook
-if [ ! -f /etc/maialinux-2.0.0-rebrand-done ]; then
-  sudo touch /etc/maialinux-2.0.0-rebrand-done 2>/dev/null || true
+hook_header = '# MaiaLinux 2.0.1 One-time Finalization Hook'
+new_hook = '''# MaiaLinux 2.0.1 One-time Finalization Hook
+if [ ! -f /etc/maialinux-2.0.1-rebrand-done ]; then
+  sudo touch /etc/maialinux-2.0.1-rebrand-done 2>/dev/null || true
   sudo cp -f \"/opt/system/Launch MaiaLinux (LXQt).sh\" /usr/local/bin/start-maialinux.sh 2>/dev/null || true
   sudo cp -f \"/opt/system/Switch Boot Mode.sh\" /usr/local/bin/switch-boot-mode.sh 2>/dev/null || true
   sudo cp -f \"/opt/system/Switch Wallpaper.sh\" /usr/local/bin/maialinux-wallpaper.sh 2>/dev/null || true
   sudo chown -R ark:ark /home/ark 2>/dev/null || true
   sudo hostnamectl set-hostname maialinux-rg353v 2>/dev/null || true
   sudo sed -i 's/^NAME=.*/NAME=\"MaiaLinux\"/' /etc/os-release 2>/dev/null || true
-  sudo sed -i 's/^PRETTY_NAME=.*/PRETTY_NAME=\"MaiaLinux 2.0.0\"/' /etc/os-release 2>/dev/null || true
-  sudo sed -i 's/^VERSION=.*/VERSION=\"2.0.0 (trixie)\"/' /etc/os-release 2>/dev/null || true
-  echo \"MaiaLinux 2.0.0 (Debian 13 Trixie / Kernel 5.10)\" | sudo tee /etc/maialinux-release >/dev/null 2>&1 || true
-  echo -e \"MaiaLinux 2.0.0 (Debian 13 trixie) \\\\n \\\\l\\\\n\" | sudo tee /etc/issue /etc/issue.net >/dev/null 2>&1 || true
+  sudo sed -i 's/^PRETTY_NAME=.*/PRETTY_NAME=\"MaiaLinux 2.0.1\"/' /etc/os-release 2>/dev/null || true
+  sudo sed -i 's/^VERSION=.*/VERSION=\"2.0.1 (trixie)\"/' /etc/os-release 2>/dev/null || true
+  echo \"MaiaLinux 2.0.1 (Debian 13 Trixie / Kernel 5.10)\" | sudo tee /etc/maialinux-release >/dev/null 2>&1 || true
+  echo -e \"MaiaLinux 2.0.1 (Debian 13 trixie) \\\\n \\\\l\\\\n\" | sudo tee /etc/issue /etc/issue.net >/dev/null 2>&1 || true
   sudo plymouth-set-default-theme maialinux 2>/dev/null || true
   sudo systemctl enable ssh 2>/dev/null || true
   sudo /usr/local/bin/maialinux-swap.sh enable 2>/dev/null || true
@@ -222,7 +222,7 @@ if [ ! -f /etc/maialinux-2.0.0-rebrand-done ]; then
   ln -sfn /roms/themes /home/ark/.emulationstation/themes 2>/dev/null || true
   # Boot resource partition preserved safely without dangerous overwrites
   # MOTD
-  printf '\\nWelcome to MaiaLinux 2.0.0\\nBased on Debian 13 (Trixie) & Kernel 5.10 LTS (%s %s)\\n\\n' \"\$(uname -o)\" \"\$(uname -rm)\" | sudo tee /etc/update-motd.d/00-header >/dev/null 2>&1 || true
+  printf '\\nWelcome to MaiaLinux 2.0.1\\nBased on Debian 13 (Trixie) & Kernel 5.10 LTS (%s %s)\\n\\n' \"\$(uname -o)\" \"\$(uname -rm)\" | sudo tee /etc/update-motd.d/00-header >/dev/null 2>&1 || true
   printf '\\n * MaiaLinux Project:           https://github.com/roberto/maialinux\\n * Debian Documentation:        https://www.debian.org/doc/\\n\\n' | sudo tee /etc/update-motd.d/10-help-text >/dev/null 2>&1 || true
   sudo chmod +x /etc/update-motd.d/* 2>/dev/null || true
 fi'''
@@ -243,4 +243,4 @@ with open(es_sh, 'w', encoding='utf-8') as f:
 
 echo "=== Synchronizing disks ==="
 sync
-echo "=== MaiaLinux 2.0.0 rebranding and carousel integration complete! ==="
+echo "=== MaiaLinux 2.0.1 rebranding and carousel integration complete! ==="
